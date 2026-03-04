@@ -32,3 +32,4 @@ postman/collections/api-gateway/User/Get Authenticated User.request.yaml
 postman/collections/api-gateway/User/.resources/Get Authenticated User.resources/examples/Get user success.example.yaml
 postman/collections/api-gateway/User/.resources/Get Authenticated User.resources/examples/Get user unauthenticated.example.yaml
 postman/globals/workspace.globals.yaml
+postman_collection.json
