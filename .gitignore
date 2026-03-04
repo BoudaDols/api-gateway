@@ -22,3 +22,13 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+.postman/resources.yaml
+postman/collections/api-gateway/.resources/definition.yaml
+postman/collections/api-gateway/Auth/Login.request.yaml
+postman/collections/api-gateway/Auth/.resources/Login.resources/examples/Login error.example.yaml
+postman/collections/api-gateway/Auth/.resources/Login.resources/examples/Login success.example.yaml
+postman/collections/api-gateway/Auth/.resources/Login.resources/examples/Login validation error.example.yaml
+postman/collections/api-gateway/User/Get Authenticated User.request.yaml
+postman/collections/api-gateway/User/.resources/Get Authenticated User.resources/examples/Get user success.example.yaml
+postman/collections/api-gateway/User/.resources/Get Authenticated User.resources/examples/Get user unauthenticated.example.yaml
+postman/globals/workspace.globals.yaml
