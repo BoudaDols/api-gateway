@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 // Auth routes (public - no authentication required)
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
+    Route::post('register', [AuthController::class, 'register']);
 });
 
 // Protected routes (require authentication)

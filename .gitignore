@@ -33,3 +33,8 @@ postman/collections/api-gateway/User/.resources/Get Authenticated User.resources
 postman/collections/api-gateway/User/.resources/Get Authenticated User.resources/examples/Get user unauthenticated.example.yaml
 postman/globals/workspace.globals.yaml
 postman_collection.json
+postman/environments/api-gateway.yaml
+postman/mocks/mock-1.js
+postman/mocks/mock-1.json
+postman/specs/index.yaml
+postman/collections/api-gateway/Auth/Register.request.yaml
