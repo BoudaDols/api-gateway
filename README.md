@@ -24,6 +24,8 @@ Client → API Gateway (JWT Auth) → Microservices
 
 - ✅ JWT token generation and validation
 - ✅ User authentication (login)
+- ✅ User registration
+- ✅ JWT middleware for protected routes
 - ✅ Role-based authorization
 - ✅ Stateless authentication (no sessions)
 - ✅ Token expiration handling
@@ -104,6 +106,39 @@ exit
 
 ### Authentication
 
+#### Register
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "password_confirmation": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "user": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "role": "user"
+    }
+  }
+}
+```
+
+**Note:** All new users are assigned the 'user' role by default. Only admins can change user roles.
+
 #### Login
 ```http
 POST /api/auth/login
@@ -125,11 +160,30 @@ Content-Type: application/json
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
-      "id": 1,
       "name": "Admin User",
       "email": "admin@example.com",
       "role": "admin"
     }
+  }
+}
+```
+
+### Protected Routes
+
+#### Get Profile
+```http
+GET /api/profile
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "email": "admin@example.com",
+    "name": "Admin User",
+    "role": "admin"
   }
 }
 ```
@@ -157,19 +211,57 @@ Content-Type: application/json
 php artisan serve
 ```
 
-### 2. Login to Get Token
+### 2. Register a New User
+
+```bash
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "password": "password123",
+    "password_confirmation": "password123"
+  }'
+```
+
+### 3. Login to Get Token
 
 ```bash
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"password123"}'
+  -d '{"email":"jane@example.com","password":"password123"}'
 ```
 
-### 3. Use Token for Authenticated Requests
+### 4. Use Token for Authenticated Requests
 
 ```bash
-curl -X GET http://localhost:8000/api/user \
+curl -X GET http://localhost:8000/api/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+## Protecting Routes with JWT Middleware
+
+### Using JWT Middleware
+
+```php
+// In routes/api.php
+Route::middleware('jwt')->group(function () {
+    Route::get('/profile', [UserController::class, 'profile']);
+    Route::get('/dashboard', [DashboardController::class, 'index']);
+});
+```
+
+### Accessing User Info in Controllers
+
+```php
+public function profile(Request $request)
+{
+    $email = $request->input('user_email');
+    $name = $request->input('user_name');
+    $role = $request->input('user_role');
+    
+    // Your logic here
+}
 ```
 
 ## Project Structure
@@ -180,8 +272,11 @@ api-gateway/
 │   ├── Http/
 │   │   ├── Controllers/
 │   │   │   └── AuthController.php      # Authentication logic
+│   │   ├── Middleware/
+│   │   │   └── JwtMiddleware.php       # JWT validation
 │   │   └── Requests/
-│   │       └── LoginRequest.php        # Login validation
+│   │       ├── LoginRequest.php        # Login validation
+│   │       └── RegisterRequest.php     # Register validation
 │   ├── Models/
 │   │   └── User.php                    # User model with role
 │   └── Services/
@@ -213,6 +308,8 @@ api-gateway/
 - Tokens expire after 60 minutes (configurable)
 - User ID not exposed in JWT payload
 - Role-based access control ready
+- All new users default to 'user' role (prevents privilege escalation)
+- Password confirmation required for registration
 
 ## Development
 
@@ -235,15 +332,28 @@ php artisan config:clear
 php artisan cache:clear
 ```
 
+## Testing with Postman
+
+Import the `postman_collection.json` file into Postman for easy API testing.
+
+The collection includes:
+- Register endpoint
+- Login endpoint
+- Protected profile endpoint
+- Auto-save JWT tokens
+- Example responses
+
 ## Roadmap
 
 - [x] JWT authentication
 - [x] Login endpoint
+- [x] Register endpoint
+- [x] JWT middleware
 - [x] Role-based tokens
-- [ ] Register endpoint
-- [ ] JWT middleware
 - [ ] Token refresh endpoint
 - [ ] Logout endpoint
+- [ ] Admin middleware
+- [ ] Update user role endpoint (admin only)
 - [ ] Service proxy
 - [ ] Rate limiting
 - [ ] Request logging

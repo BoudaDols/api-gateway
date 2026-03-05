@@ -38,3 +38,4 @@ postman/mocks/mock-1.js
 postman/mocks/mock-1.json
 postman/specs/index.yaml
 postman/collections/api-gateway/Auth/Register.request.yaml
+postman/collections/api-gateway/User/Get Profile.request.yaml
