@@ -57,11 +57,11 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        // Find user by email
-        $user = User::where('email', $request->email)->first();
+        // Email is validated by LoginRequest (email format)
+        $user = User::where('email', $request->validated()['email'])->first();
 
         // Check if user exists and password is correct
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($request->validated()['password'], $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid credentials'
