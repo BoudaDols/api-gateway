@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +23,11 @@ Route::middleware('jwt')->group(function () {
             ]
         ]);
     });
+});
+
+// Admin routes (require JWT + admin role)
+Route::middleware(['jwt', 'admin'])->prefix('admin')->group(function () {
+    Route::put('/users/role', [AdminController::class, 'updateRole']);
 });
 
 // Protected routes (require authentication - Sanctum)
