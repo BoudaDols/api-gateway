@@ -27,6 +27,8 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ User registration
 - ✅ JWT middleware for protected routes
 - ✅ Role-based authorization
+- ✅ Admin middleware for protected routes
+- ✅ Admin role management endpoint
 - ✅ Stateless authentication (no sessions)
 - ✅ Token expiration handling
 - 🚧 Service proxy (coming soon)
@@ -188,6 +190,54 @@ Authorization: Bearer YOUR_JWT_TOKEN
 }
 ```
 
+### Admin Routes
+
+#### Update User Role (Admin Only)
+```http
+PUT /api/admin/users/role
+Authorization: Bearer ADMIN_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "role": "admin"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "User role updated successfully",
+  "data": {
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "admin"
+  }
+}
+```
+
+**Response (Non-admin):**
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+**Response (User not found):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "email": ["The selected email is invalid."]
+  }
+}
+```
+
+**Note:** Only users with 'admin' role can update user roles. Valid roles are 'user' and 'admin'.
+
 ## JWT Token Structure
 
 ### Payload
@@ -251,6 +301,16 @@ Route::middleware('jwt')->group(function () {
 });
 ```
 
+### Using Admin Middleware
+
+```php
+// In routes/api.php
+Route::middleware(['jwt', 'admin'])->group(function () {
+    Route::put('/admin/users/role', [AdminController::class, 'updateRole']);
+    Route::get('/admin/dashboard', [AdminController::class, 'dashboard']);
+});
+```
+
 ### Accessing User Info in Controllers
 
 ```php
@@ -271,12 +331,15 @@ api-gateway/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   └── AuthController.php      # Authentication logic
+│   │   │   ├── AuthController.php      # Authentication logic
+│   │   │   └── AdminController.php     # Admin role management
 │   │   ├── Middleware/
-│   │   │   └── JwtMiddleware.php       # JWT validation
+│   │   │   ├── JwtMiddleware.php       # JWT validation
+│   │   │   └── AdminMiddleware.php     # Admin authorization
 │   │   └── Requests/
 │   │       ├── LoginRequest.php        # Login validation
-│   │       └── RegisterRequest.php     # Register validation
+│   │       ├── RegisterRequest.php     # Register validation
+│   │       └── UpdateRoleRequest.php   # Role update validation
 │   ├── Models/
 │   │   └── User.php                    # User model with role
 │   └── Services/
@@ -307,9 +370,11 @@ api-gateway/
 - Passwords are hashed with bcrypt
 - Tokens expire after 60 minutes (configurable)
 - User ID not exposed in JWT payload
-- Role-based access control ready
+- Role-based access control with admin middleware
 - All new users default to 'user' role (prevents privilege escalation)
 - Password confirmation required for registration
+- Sensitive data (emails) in request body, not URL (prevents logging exposure)
+- Admin-only endpoints protected with dual middleware (JWT + Admin)
 
 ## Development
 
@@ -350,10 +415,10 @@ The collection includes:
 - [x] Register endpoint
 - [x] JWT middleware
 - [x] Role-based tokens
+- [x] Admin middleware
+- [x] Update user role endpoint (admin only)
 - [ ] Token refresh endpoint
 - [ ] Logout endpoint
-- [ ] Admin middleware
-- [ ] Update user role endpoint (admin only)
 - [ ] Service proxy
 - [ ] Rate limiting
 - [ ] Request logging
