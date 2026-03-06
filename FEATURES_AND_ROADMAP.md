@@ -267,9 +267,103 @@ docker-compose exec app bash
 
 ---
 
+### 9. Admin Middleware
+**Status:** ✅ Complete
+
+**What we built:**
+- Admin middleware that checks user role
+- Returns 403 Forbidden if user is not admin
+- Works in combination with JWT middleware
+- Dual middleware protection (JWT + Admin)
+
+**Usage:**
+```php
+Route::middleware(['jwt', 'admin'])->group(function () {
+    Route::put('/admin/users/role', [AdminController::class, 'updateRole']);
+});
+```
+
+**Files:**
+- `app/Http/Middleware/AdminMiddleware.php` - Admin authorization
+- `bootstrap/app.php` - Middleware registration
+
+**Security:**
+- ✅ Checks user_role from JWT token
+- ✅ Returns 403 for non-admin users
+- ✅ Must be used after JWT middleware
+
+---
+
+### 10. Admin Role Management
+**Status:** ✅ Complete
+
+**What we built:**
+- Admin-only endpoint to update user roles
+- Email in request body (not URL) for security
+- Validates role (only 'user' or 'admin' allowed)
+- Validates email exists in database
+- Uses validated() method to prevent SQL injection
+
+**Endpoint:** `PUT /api/admin/users/role`
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "role": "admin"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "User role updated successfully",
+  "data": {
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "admin"
+  }
+}
+```
+
+**Response (Non-admin):**
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+**Response (Invalid email):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "email": ["The selected email is invalid."]
+  }
+}
+```
+
+**Files:**
+- `app/Http/Controllers/AdminController.php` - Role update logic
+- `app/Http/Requests/UpdateRoleRequest.php` - Validation (email exists, role in:user,admin)
+- `routes/api.php` - Admin route with dual middleware
+
+**Security:**
+- ✅ Email in request body, not URL (prevents logging exposure)
+- ✅ Dual middleware protection (JWT + Admin)
+- ✅ Email validation with exists:users,email
+- ✅ Role validation with in:user,admin
+- ✅ Uses validated() method explicitly
+- ✅ Protected against SQL injection
+
+---
+
 ## 🚧 Next Steps (Priority Order)
 
-### Priority 1: Admin Middleware
+### Priority 1: Service Proxy/Gateway
 **Purpose:** Restrict certain routes to admin users only
 
 **What to build:**
@@ -303,7 +397,7 @@ Route::middleware(['jwt', 'admin'])->group(function () {
 
 ---
 
-### Priority 2: Update User Role Endpoint (Admin Only)
+### Priority 2: Token Refresh Endpoint
 **Purpose:** Allow admins to change user roles
 
 **What to build:**
@@ -344,7 +438,7 @@ Route::middleware(['jwt', 'admin'])->group(function () {
 
 ---
 
-### Priority 3: Service Proxy/Gateway
+### Priority 3: Logout with Token Blacklist
 **Purpose:** Forward authenticated requests to microservices
 
 **What to build:**
@@ -387,7 +481,7 @@ Headers:
 
 ---
 
-### Priority 4: Token Refresh Endpoint
+### Priority 4: Rate Limiting
 **Purpose:** Refresh expired tokens without re-login
 
 **What to build:**
@@ -422,7 +516,7 @@ Authorization: Bearer OLD_TOKEN
 
 ---
 
-### Priority 5: Logout with Token Blacklist
+### Priority 5: Request Logging
 **Purpose:** Revoke tokens before expiration
 
 **What to build:**
@@ -537,7 +631,7 @@ Authorization: Bearer JWT_TOKEN
 
 ## Summary
 
-### Completed (8 features)
+### Completed (10 features)
 1. ✅ JWT Authentication System
 2. ✅ User Registration
 3. ✅ User Login
@@ -546,39 +640,42 @@ Authorization: Bearer JWT_TOKEN
 6. ✅ Role-Based Access Foundation
 7. ✅ Docker Containerization
 8. ✅ API Documentation
+9. ✅ Admin Middleware
+10. ✅ Admin Role Management
 
-### Next Steps (8 features)
-1. 🚧 Admin Middleware (30 min)
-2. 🚧 Update User Role Endpoint (1 hour)
-3. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Core feature
-4. 🚧 Token Refresh (1 hour)
-5. 🚧 Logout with Blacklist (2 hours)
-6. 🚧 Rate Limiting (2 hours)
-7. 🚧 Request Logging (2 hours)
-8. 🚧 CORS Configuration (30 min)
+### Next Steps (6 features)
+1. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Core feature
+2. 🚧 Token Refresh (1 hour)
+3. 🚧 Logout with Blacklist (2 hours)
+4. 🚧 Rate Limiting (2 hours)
+5. 🚧 Request Logging (2 hours)
+6. 🚧 CORS Configuration (30 min)
 
 ### Total Estimated Time for Next Steps
-**~11-12 hours** to complete all remaining features
+**~9-10 hours** to complete all remaining features
 
 ---
 
 ## Recommended Implementation Order
 
-**Phase 1: Complete Authentication (2 hours)**
-- Admin Middleware
-- Update User Role Endpoint
-- Token Refresh
-- Logout with Blacklist
+**Phase 1: Authentication & Authorization (COMPLETE ✅)**
+- ✅ JWT Authentication
+- ✅ User Registration & Login
+- ✅ JWT Middleware
+- ✅ Admin Middleware
+- ✅ Admin Role Management
 
 **Phase 2: Gateway Core (3 hours)**
-- Service Proxy/Gateway ⭐
+- 🚧 Service Proxy/Gateway ⭐
+- 🚧 Token Refresh
+- 🚧 Logout with Blacklist
 
 **Phase 3: Production Ready (4 hours)**
-- Rate Limiting
-- Request Logging
-- CORS Configuration
+- 🚧 Rate Limiting
+- 🚧 Request Logging
+- 🚧 CORS Configuration
 
 ---
 
-**Current Status:** 50% Complete (8/16 features)
+**Current Status:** 62.5% Complete (10/16 features)
 **Production Ready:** After Phase 3 (100% complete)
