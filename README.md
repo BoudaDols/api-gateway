@@ -29,11 +29,14 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ Role-based authorization
 - ✅ Admin middleware for protected routes
 - ✅ Admin role management endpoint
+- ✅ Token refresh endpoint
 - ✅ Stateless authentication (no sessions)
 - ✅ Token expiration handling
-- 🚧 Service proxy (coming soon)
+- 🚧 CORS configuration (coming soon)
+- 🚧 Logout with token blacklist (coming soon)
 - 🚧 Rate limiting (coming soon)
 - 🚧 Request logging (coming soon)
+- 🚧 Service proxy (coming soon)
 
 ## Requirements
 
@@ -238,6 +241,45 @@ Content-Type: application/json
 
 **Note:** Only users with 'admin' role can update user roles. Valid roles are 'user' and 'admin'.
 
+### Token Management
+
+#### Refresh Token
+```http
+POST /api/auth/refresh
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Token refreshed successfully",
+  "data": {
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "Bearer",
+    "expires_in": 3600
+  }
+}
+```
+
+**Response (Invalid/Expired Token):**
+```json
+{
+  "success": false,
+  "message": "Token cannot be refreshed. Please login again."
+}
+```
+
+**Response (No Token):**
+```json
+{
+  "success": false,
+  "message": "Token not provided"
+}
+```
+
+**Note:** Tokens can be refreshed within 14 days of expiration. After that, users must login again.
+
 ## JWT Token Structure
 
 ### Payload
@@ -417,12 +459,12 @@ The collection includes:
 - [x] Role-based tokens
 - [x] Admin middleware
 - [x] Update user role endpoint (admin only)
-- [ ] Token refresh endpoint
+- [x] Token refresh endpoint
+- [ ] CORS configuration
 - [ ] Logout endpoint
-- [ ] Service proxy
 - [ ] Rate limiting
 - [ ] Request logging
-- [ ] CORS configuration
+- [ ] Service proxy (build last)
 
 ## Contributing
 
