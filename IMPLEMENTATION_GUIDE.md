@@ -14,10 +14,11 @@ A complete step-by-step guide documenting how we built this JWT-based API Gatewa
 6. [Step 5: JWT Middleware](#step-5-jwt-middleware)
 7. [Step 6: Admin Middleware](#step-6-admin-middleware)
 8. [Step 7: Admin Role Management](#step-7-admin-role-management)
-9. [Step 8: Security Audit](#step-8-security-audit)
-10. [Step 9: Docker Setup](#step-9-docker-setup)
-11. [Architecture Decisions](#architecture-decisions)
-12. [Security Considerations](#security-considerations)
+9. [Step 8: Token Refresh](#step-8-token-refresh)
+10. [Step 9: Security Audit](#step-9-security-audit)
+11. [Step 10: Docker Setup](#step-10-docker-setup)
+12. [Architecture Decisions](#architecture-decisions)
+13. [Security Considerations](#security-considerations)
 
 ---
 
@@ -618,7 +619,247 @@ Route::middleware(['jwt', 'admin'])->group(function () {
 
 ---
 
-## Step 8: Security Audit
+## Step 8: Token Refresh
+
+### Purpose
+Allow users to refresh expired or about-to-expire tokens without logging in again.
+
+### The Problem
+Tokens expire after 60 minutes. Users must login again (bad UX).
+
+### The Solution
+Refresh endpoint that generates new token from old/expired token.
+
+### Files Modified
+
+#### 1. JWTService.php - Add Refresh Logic
+`app/Services/JWTService.php`
+
+**Added 3 methods:**
+
+**a) refreshToken()** - Main refresh logic
+```php
+public function refreshToken(string $oldToken): ?string
+{
+    // 1. Decode token (ignore expiration)
+    $payload = $this->decodeToken($oldToken);
+    
+    if (!$payload) {
+        return null; // Invalid format
+    }
+    
+    // 2. Verify signature
+    if (!$this->verifySignature($oldToken)) {
+        return null; // Tampered
+    }
+    
+    // 3. Check refresh window (14 days)
+    $refreshTtl = config('jwt.refresh_ttl') * 60;
+    if (time() - $payload['exp'] > $refreshTtl) {
+        return null; // Too old
+    }
+    
+    // 4. Generate new token
+    return $this->generateToken([
+        'email' => $payload['email'],
+        'name' => $payload['name'],
+        'role' => $payload['role'],
+    ]);
+}
+```
+
+**b) decodeToken()** - Decode without expiration check
+```php
+private function decodeToken(string $token): ?array
+{
+    $parts = explode('.', $token);
+    
+    if (count($parts) !== 3) {
+        return null;
+    }
+    
+    [$header, $payload, $signature] = $parts;
+    
+    // Decode payload (don't check expiration)
+    return json_decode(
+        $this->base64UrlDecode($payload), 
+        true
+    );
+}
+```
+
+**c) verifySignature()** - Check signature validity
+```php
+private function verifySignature(string $token): bool
+{
+    $parts = explode('.', $token);
+    
+    if (count($parts) !== 3) {
+        return false;
+    }
+    
+    [$header, $payload, $signature] = $parts;
+    
+    // Recalculate signature
+    $validSignature = $this->base64UrlEncode(
+        hash_hmac('sha256', "$header.$payload", $this->secret, true)
+    );
+    
+    // Timing-safe comparison
+    return hash_equals($signature, $validSignature);
+}
+```
+
+#### 2. AuthController.php - Add Refresh Endpoint
+`app/Http/Controllers/AuthController.php`
+
+```php
+public function refresh(Request $request): JsonResponse
+{
+    // 1. Get token from header
+    $oldToken = $request->bearerToken();
+    
+    if (!$oldToken) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Token not provided'
+        ], 401);
+    }
+    
+    // 2. Try to refresh
+    $newToken = $this->jwtService->refreshToken($oldToken);
+    
+    if (!$newToken) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Token cannot be refreshed. Please login again.'
+        ], 401);
+    }
+    
+    // 3. Return new token
+    return response()->json([
+        'success' => true,
+        'message' => 'Token refreshed successfully',
+        'data' => [
+            'token' => $newToken,
+            'token_type' => 'Bearer',
+            'expires_in' => config('jwt.ttl') * 60,
+        ]
+    ]);
+}
+```
+
+#### 3. Route
+`routes/api.php`
+
+```php
+Route::prefix('auth')->group(function () {
+    Route::post('login', [AuthController::class, 'login']);
+    Route::post('register', [AuthController::class, 'register']);
+    Route::post('refresh', [AuthController::class, 'refresh']); // NEW
+});
+```
+
+**Note:** No JWT middleware (token might be expired).
+
+### How It Works
+
+**Flow:**
+1. Client sends old/expired token
+2. Gateway decodes token (ignores expiration)
+3. Gateway verifies signature is valid
+4. Gateway checks if within refresh window (14 days)
+5. Gateway generates new token with same user data
+6. Client receives new token
+
+**Refresh Window:**
+- Token expired 1 hour ago → ✅ Can refresh
+- Token expired 10 days ago → ✅ Can refresh
+- Token expired 15 days ago → ❌ Cannot refresh (must login)
+
+### Security Decisions
+
+#### ✅ Verify Signature
+```php
+if (!$this->verifySignature($oldToken)) {
+    return null; // Tampered token
+}
+```
+
+**Why?** Prevents attackers from creating fake expired tokens.
+
+#### ✅ Limited Refresh Window
+```php
+if (time() - $payload['exp'] > $refreshTtl) {
+    return null; // Too old
+}
+```
+
+**Why?** Prevents indefinite token refresh (security risk).
+
+#### ✅ Timing-Safe Comparison
+```php
+return hash_equals($signature, $validSignature);
+```
+
+**Why?** Prevents timing attacks on signature verification.
+
+### Testing
+
+**Test 1: Valid token refresh**
+```bash
+curl -X POST http://localhost:8000/api/auth/refresh \
+  -H "Authorization: Bearer VALID_TOKEN"
+```
+
+**Expected:** New token returned
+
+**Test 2: No token**
+```bash
+curl -X POST http://localhost:8000/api/auth/refresh
+```
+
+**Expected:** "Token not provided" error
+
+**Test 3: Invalid token**
+```bash
+curl -X POST http://localhost:8000/api/auth/refresh \
+  -H "Authorization: Bearer invalid.token.here"
+```
+
+**Expected:** "Token cannot be refreshed" error
+
+### Frontend Integration
+
+**Strategy 1: Refresh before expiration**
+```javascript
+// Refresh 5 minutes before expiration
+setTimeout(() => {
+    refreshToken();
+}, 55 * 60 * 1000); // 55 minutes
+```
+
+**Strategy 2: Refresh on 401 error**
+```javascript
+axios.interceptors.response.use(
+    response => response,
+    async error => {
+        if (error.response.status === 401) {
+            const newToken = await refreshToken();
+            if (newToken) {
+                // Retry with new token
+                error.config.headers['Authorization'] = `Bearer ${newToken}`;
+                return axios.request(error.config);
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+```
+
+---
+
+## Step 9: Security Audit
 
 ### Purpose
 Identify and fix security vulnerabilities.
@@ -962,6 +1203,11 @@ POST /api/auth/login     - Get JWT token
 GET /api/profile         - Get user info from token
 ```
 
+### Token Management
+```
+POST /api/auth/refresh   - Refresh expired token
+```
+
 ### Admin Endpoints (Require JWT + Admin Role)
 ```
 PUT /api/admin/users/role  - Update user role (admin only)
@@ -1018,29 +1264,29 @@ curl -X GET http://localhost:8000/api/profile \
 5. Role-based access (foundation)
 6. Admin middleware for admin-only routes
 7. Admin role management endpoint
-8. Security audit and fixes
-9. Docker containerization
-10. MySQL database integration
-11. Postman collection for testing
+8. Token refresh endpoint
+9. Security audit and fixes
+10. Docker containerization
+11. MySQL database integration
+12. Postman collection for testing
 
 ### 🚧 Future Features
-1. Token refresh endpoint
+1. CORS configuration
 2. Logout with token blacklist
-3. Service proxy (forward to microservices)
-4. Rate limiting
-5. Request logging
-6. CORS configuration
+3. Rate limiting
+4. Request logging
+5. Service proxy (build last - most complex)
 
 ---
 
 ## Project Statistics
 
-- **Files Created**: 20+
-- **Lines of Code**: ~700
-- **Time to Build**: ~4 hours
+- **Files Created**: 21+
+- **Lines of Code**: ~900
+- **Time to Build**: ~5 hours
 - **Dependencies**: Minimal (Laravel core only)
 - **Docker Containers**: 2 (app + database)
-- **API Endpoints**: 4 (register, login, profile, update role)
+- **API Endpoints**: 5 (register, login, refresh, profile, update role)
 - **Middleware**: 2 (JWT, Admin)
 - **Security Scans**: Passed with 0 real vulnerabilities
 
@@ -1059,13 +1305,11 @@ curl -X GET http://localhost:8000/api/profile \
 ## Next Steps
 
 To continue building:
-1. Implement token refresh
-2. Add admin middleware
-3. Build service proxy
-4. Add rate limiting
-5. Implement request logging
-6. Add CORS support
-7. Create admin dashboard
+1. Add CORS configuration
+2. Build logout with blacklist
+3. Add rate limiting
+4. Implement request logging
+5. Build service proxy (LAST - most complex, integrates all features)
 
 ---
 

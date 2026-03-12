@@ -361,127 +361,76 @@ Route::middleware(['jwt', 'admin'])->group(function () {
 
 ---
 
-## 🚧 Next Steps (Priority Order)
+### 11. Token Refresh
+**Status:** ✅ Complete
 
-### Priority 1: Service Proxy/Gateway
-**Purpose:** Restrict certain routes to admin users only
+**What we built:**
+- Refresh endpoint to extend token lifetime
+- Decode token without expiration check
+- Verify signature validity
+- Refresh window (14 days default)
+- Generate new token with same user data
 
-**What to build:**
-- Admin middleware that checks user role
-- Returns 403 if user is not admin
-- Uses JWT middleware first, then checks role
-
-**Implementation:**
-```php
-// app/Http/Middleware/AdminMiddleware.php
-public function handle(Request $request, Closure $next)
-{
-    if ($request->input('user_role') !== 'admin') {
-        return response()->json([
-            'success' => false,
-            'message' => 'Admin access required'
-        ], 403);
-    }
-    return $next($request);
-}
-```
-
-**Usage:**
-```php
-Route::middleware(['jwt', 'admin'])->group(function () {
-    Route::put('/admin/users/{email}/role', [AdminController::class, 'updateRole']);
-});
-```
-
-**Estimated time:** 30 minutes
-
----
-
-### Priority 2: Token Refresh Endpoint
-**Purpose:** Allow admins to change user roles
-
-**What to build:**
-- Admin-only endpoint to update user roles
-- Validate role (user/admin)
-- Find user by email
-- Update role in database
-- Return updated user
-
-**Endpoint:** `PUT /api/admin/users/{email}/role`
+**Endpoint:** `POST /api/auth/refresh`
 
 **Request:**
-```json
-{
-  "role": "admin"
-}
+```http
+POST /api/auth/refresh
+Authorization: Bearer OLD_OR_EXPIRED_TOKEN
 ```
 
-**Response:**
+**Response (Success):**
 ```json
 {
   "success": true,
-  "message": "User role updated",
+  "message": "Token refreshed successfully",
   "data": {
-    "email": "john@example.com",
-    "name": "John Doe",
-    "role": "admin"
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "Bearer",
+    "expires_in": 3600
   }
 }
 ```
 
-**Files to create:**
-- `app/Http/Requests/UpdateRoleRequest.php` - Validation
-- `app/Http/Controllers/AdminController.php` - Logic
-- `app/Http/Middleware/AdminMiddleware.php` - Authorization
+**Response (Token too old):**
+```json
+{
+  "success": false,
+  "message": "Token cannot be refreshed. Please login again."
+}
+```
 
-**Estimated time:** 1 hour
+**Response (No token):**
+```json
+{
+  "success": false,
+  "message": "Token not provided"
+}
+```
+
+**Files:**
+- `app/Services/JWTService.php` - Added refreshToken(), decodeToken(), verifySignature()
+- `app/Http/Controllers/AuthController.php` - Added refresh() method
+- `routes/api.php` - Added refresh route
+
+**Features:**
+- ✅ Refresh expired tokens (within 14 days)
+- ✅ Verify signature before refresh
+- ✅ Configurable refresh window
+- ✅ No JWT middleware required (token might be expired)
+- ✅ Timing-safe signature comparison
+
+**Security:**
+- ✅ Signature must be valid
+- ✅ Limited refresh window (14 days)
+- ✅ New token generated (old one discarded)
+- ✅ Same user data preserved
 
 ---
 
-### Priority 3: Logout with Token Blacklist
-**Purpose:** Forward authenticated requests to microservices
+## 🚧 Next Steps (Priority Order)
 
-**What to build:**
-- Service registry configuration
-- Gateway controller to proxy requests
-- Add user context headers (X-User-Email, X-User-Role)
-- Forward requests with Guzzle HTTP client
-- Return microservice responses
-
-**Architecture:**
-```
-Client → Gateway (validates JWT) → Microservice
-         ↓
-    Adds headers:
-    - X-User-Email
-    - X-User-Name
-    - X-User-Role
-```
-
-**Endpoint:** `ANY /api/services/{service}/{path}`
-
-**Example:**
-```bash
-GET /api/services/orders/user-orders
-Authorization: Bearer JWT_TOKEN
-
-# Gateway forwards to:
-GET http://order-service:3000/user-orders
-Headers:
-  X-User-Email: john@example.com
-  X-User-Role: user
-```
-
-**Files to create:**
-- `config/services.php` - Service registry
-- `app/Http/Controllers/GatewayController.php` - Proxy logic
-- `app/Services/ServiceProxyService.php` - HTTP forwarding
-
-**Estimated time:** 2-3 hours
-
----
-
-### Priority 4: Rate Limiting
+### Priority 1: CORS Configuration
 **Purpose:** Refresh expired tokens without re-login
 
 **What to build:**
@@ -516,7 +465,32 @@ Authorization: Bearer OLD_TOKEN
 
 ---
 
-### Priority 5: Request Logging
+### Priority 2: CORS Configuration
+**Purpose:** Allow frontend applications to access API
+
+**What to build:**
+- CORS middleware configuration
+- Allowed origins from environment
+- Allowed methods and headers
+- Credentials support
+
+**Configuration:**
+```php
+// config/cors.php
+'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
+'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+'allowed_headers' => ['Content-Type', 'Authorization'],
+```
+
+**Files to modify:**
+- `config/cors.php` - Already exists, just configure
+- `.env` - Add CORS_ALLOWED_ORIGINS
+
+**Estimated time:** 30 minutes
+
+---
+
+### Priority 3: Logout with Token Blacklist
 **Purpose:** Revoke tokens before expiration
 
 **What to build:**
@@ -553,7 +527,7 @@ Authorization: Bearer JWT_TOKEN
 
 ---
 
-### Priority 6: Rate Limiting
+### Priority 4: Rate Limiting
 **Purpose:** Protect API from abuse
 
 **What to build:**
@@ -578,7 +552,7 @@ Authorization: Bearer JWT_TOKEN
 
 ---
 
-### Priority 7: Request Logging
+### Priority 5: Request Logging
 **Purpose:** Track API usage and debug issues
 
 **What to build:**
@@ -604,34 +578,60 @@ Authorization: Bearer JWT_TOKEN
 
 ---
 
-### Priority 8: CORS Configuration
-**Purpose:** Allow frontend applications to access API
+### Priority 6: Service Proxy/Gateway (BUILD LAST)
+**Purpose:** Forward authenticated requests to microservices
 
 **What to build:**
-- CORS middleware configuration
-- Allowed origins from environment
-- Allowed methods and headers
-- Credentials support
+- Service registry configuration
+- Gateway controller to proxy requests
+- Add user context headers (X-User-Email, X-User-Role)
+- Forward requests with Guzzle HTTP client
+- Return microservice responses
+- Integrate rate limiting and logging
 
-**Configuration:**
-```php
-// config/cors.php
-'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
-'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-'allowed_headers' => ['Content-Type', 'Authorization'],
+**Architecture:**
+```
+Client → Gateway (validates JWT) → Microservice
+         ↓
+    Adds headers:
+    - X-User-Email
+    - X-User-Name
+    - X-User-Role
 ```
 
-**Files to modify:**
-- `config/cors.php` - Already exists, just configure
-- `.env` - Add CORS_ALLOWED_ORIGINS
+**Endpoint:** `ANY /api/services/{service}/{path}`
 
-**Estimated time:** 30 minutes
+**Example:**
+```bash
+GET /api/services/orders/user-orders
+Authorization: Bearer JWT_TOKEN
+
+# Gateway forwards to:
+GET http://order-service:3000/user-orders
+Headers:
+  X-User-Email: john@example.com
+  X-User-Role: user
+```
+
+**Files to create:**
+- `config/services.php` - Service registry
+- `app/Http/Controllers/GatewayController.php` - Proxy logic
+- `app/Services/ServiceProxyService.php` - HTTP forwarding
+
+**Why build last:**
+- Most complex feature
+- Requires understanding of all other features
+- Should integrate rate limiting and logging
+- Hard to test without real microservices
+- Optional for authentication-only use case
+
+**Estimated time:** 2-3 hours
 
 ---
 
 ## Summary
 
-### Completed (10 features)
+### Completed (11 features)
 1. ✅ JWT Authentication System
 2. ✅ User Registration
 3. ✅ User Login
@@ -642,17 +642,17 @@ Authorization: Bearer JWT_TOKEN
 8. ✅ API Documentation
 9. ✅ Admin Middleware
 10. ✅ Admin Role Management
+11. ✅ Token Refresh
 
-### Next Steps (6 features)
-1. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Core feature
-2. 🚧 Token Refresh (1 hour)
-3. 🚧 Logout with Blacklist (2 hours)
-4. 🚧 Rate Limiting (2 hours)
-5. 🚧 Request Logging (2 hours)
-6. 🚧 CORS Configuration (30 min)
+### Next Steps (5 features)
+1. 🚧 CORS Configuration (30 min)
+2. 🚧 Logout with Blacklist (2 hours)
+3. 🚧 Rate Limiting (2 hours)
+4. 🚧 Request Logging (2 hours)
+5. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
 
 ### Total Estimated Time for Next Steps
-**~9-10 hours** to complete all remaining features
+**~8-9 hours** to complete all remaining features
 
 ---
 
@@ -664,18 +664,46 @@ Authorization: Bearer JWT_TOKEN
 - ✅ JWT Middleware
 - ✅ Admin Middleware
 - ✅ Admin Role Management
+- ✅ Token Refresh
 
-**Phase 2: Gateway Core (3 hours)**
-- 🚧 Service Proxy/Gateway ⭐
-- 🚧 Token Refresh
+**Phase 2: Production Configuration (2.5 hours)**
+- 🚧 CORS Configuration
 - 🚧 Logout with Blacklist
 
-**Phase 3: Production Ready (4 hours)**
+**Phase 3: Production Features (4 hours)**
 - 🚧 Rate Limiting
 - 🚧 Request Logging
-- 🚧 CORS Configuration
+
+**Phase 4: Gateway Core (2-3 hours) - BUILD LAST**
+- 🚧 Service Proxy/Gateway ⭐
 
 ---
 
-**Current Status:** 62.5% Complete (10/16 features)
-**Production Ready:** After Phase 3 (100% complete)
+**Current Status:** 68.75% Complete (11/16 features)
+**Production Ready:** After Phase 3 (93.75% complete)
+**Full Gateway:** After Phase 4 (100% complete)
+
+---
+
+## Why Build Service Proxy Last?
+
+### Reasons:
+1. **Most Complex** - Requires understanding of all other features
+2. **Needs Real Services** - Hard to test without actual microservices
+3. **Integration Point** - Should integrate rate limiting, logging, etc.
+4. **Optional** - API Gateway works fine without it for authentication-only use cases
+5. **Better Understanding** - You'll know the gateway better after building other features
+
+### When to Build:
+- ✅ After completing all other features
+- ✅ When you have actual microservices to connect
+- ✅ When you understand your microservice architecture
+- ✅ When you need to integrate rate limiting and logging into proxy
+
+### Alternative:
+If you don't need a proxy, you can:
+- Use this as authentication-only gateway
+- Let frontend call microservices directly
+- Use external gateway (Kong, Nginx, AWS API Gateway)
+
+---

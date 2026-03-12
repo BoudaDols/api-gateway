@@ -7,6 +7,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use App\Services\JWTService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -88,6 +89,43 @@ class AuthController extends Controller
                     'email' => $user->email,
                     'role' => $user->role,
                 ]
+            ]
+        ]);
+    }
+
+    /**
+     * Refresh an expired or about-to-expire token
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        // 1. Get token from Authorization header
+        $oldToken = $request->bearerToken();
+        
+        if (!$oldToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token not provided'
+            ], 401);
+        }
+        
+        // 2. Try to refresh the token
+        $newToken = $this->jwtService->refreshToken($oldToken);
+        
+        if (!$newToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token cannot be refreshed. Please login again.'
+            ], 401);
+        }
+        
+        // 3. Return new token
+        return response()->json([
+            'success' => true,
+            'message' => 'Token refreshed successfully',
+            'data' => [
+                'token' => $newToken,
+                'token_type' => 'Bearer',
+                'expires_in' => config('jwt.ttl') * 60,
             ]
         ]);
     }
