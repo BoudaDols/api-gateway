@@ -431,41 +431,6 @@ Authorization: Bearer OLD_OR_EXPIRED_TOKEN
 ## 🚧 Next Steps (Priority Order)
 
 ### Priority 1: CORS Configuration
-**Purpose:** Refresh expired tokens without re-login
-
-**What to build:**
-- Refresh endpoint
-- Validate old token (even if expired)
-- Generate new token with extended expiry
-- Return new token
-
-**Endpoint:** `POST /api/auth/refresh`
-
-**Request:**
-```
-Authorization: Bearer OLD_TOKEN
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "token": "NEW_JWT_TOKEN",
-    "expires_in": 3600
-  }
-}
-```
-
-**Files to modify:**
-- `app/Services/JWTService.php` - Add refresh logic
-- `app/Http/Controllers/AuthController.php` - Add refresh method
-
-**Estimated time:** 1 hour
-
----
-
-### Priority 2: CORS Configuration
 **Purpose:** Allow frontend applications to access API
 
 **What to build:**
@@ -490,7 +455,7 @@ Authorization: Bearer OLD_TOKEN
 
 ---
 
-### Priority 3: Logout with Token Blacklist
+### Priority 2: Logout with Token Blacklist
 **Purpose:** Revoke tokens before expiration
 
 **What to build:**
@@ -527,7 +492,7 @@ Authorization: Bearer JWT_TOKEN
 
 ---
 
-### Priority 4: Rate Limiting
+### Priority 3: Rate Limiting
 **Purpose:** Protect API from abuse
 
 **What to build:**
@@ -552,7 +517,7 @@ Authorization: Bearer JWT_TOKEN
 
 ---
 
-### Priority 5: Request Logging
+### Priority 4: Request Logging
 **Purpose:** Track API usage and debug issues
 
 **What to build:**
@@ -578,7 +543,7 @@ Authorization: Bearer JWT_TOKEN
 
 ---
 
-### Priority 6: Service Proxy/Gateway (BUILD LAST)
+### Priority 5: Service Proxy/Gateway (BUILD LAST)
 **Purpose:** Forward authenticated requests to microservices
 
 **What to build:**
@@ -705,5 +670,134 @@ If you don't need a proxy, you can:
 - Use this as authentication-only gateway
 - Let frontend call microservices directly
 - Use external gateway (Kong, Nginx, AWS API Gateway)
+
+---
+
+## 🔮 Future Version: V2 - Phone/OTP Authentication
+
+**Status:** 📋 Planned (build after V1 is 100% complete)
+
+### Overview
+A second version of the API Gateway that uses **phone number + SMS OTP** instead of email + password. Works exactly the same as V1 but with a different authentication method.
+
+### Architecture
+```
+V1: POST /api/auth/register     (email + password)
+V2: POST /api/v2/auth/register  (phone + OTP)
+```
+
+### Registration Flow
+```
+1. Client sends phone number
+   POST /api/v2/auth/register
+   {"phone": "+1234567890", "name": "John Doe"}
+
+2. Gateway generates 6-digit OTP, stores it, sends SMS
+   Response: {"message": "OTP sent to +1234567890"}
+
+3. Client sends OTP to verify
+   POST /api/v2/auth/register/verify
+   {"phone": "+1234567890", "code": "123456"}
+
+4. Gateway verifies OTP, creates user, returns JWT
+   Response: {"token": "eyJ0eXAiOiJKV1Qi..."}
+```
+
+### Login Flow
+```
+1. Client sends phone number
+   POST /api/v2/auth/login
+   {"phone": "+1234567890"}
+
+2. Gateway generates OTP, sends SMS
+   Response: {"message": "OTP sent to +1234567890"}
+
+3. Client sends OTP to verify
+   POST /api/v2/auth/login/verify
+   {"phone": "+1234567890", "code": "123456"}
+
+4. Gateway verifies OTP, returns JWT
+   Response: {"token": "eyJ0eXAiOiJKV1Qi..."}
+```
+
+### Endpoints
+```
+POST /api/v2/auth/register         - Send OTP for registration
+POST /api/v2/auth/register/verify  - Verify OTP + create user
+POST /api/v2/auth/login            - Send OTP for login
+POST /api/v2/auth/login/verify     - Verify OTP + get JWT
+POST /api/v2/auth/refresh          - Refresh token (same as V1)
+```
+
+### JWT Token Structure (V2)
+```json
+{
+  "phone": "+1234567890",
+  "name": "John Doe",
+  "role": "user",
+  "iat": 1234567890,
+  "exp": 1234571490
+}
+```
+
+### Components to Build
+
+**New Files:**
+- `app/Services/OtpService.php` - Generate, store, verify OTP
+- `app/Services/SmsService.php` - Send SMS (Twilio/Vonage/Log)
+- `app/Http/Controllers/V2/AuthController.php` - V2 auth logic
+- `app/Http/Requests/V2/RegisterRequest.php` - Phone validation
+- `app/Http/Requests/V2/VerifyOtpRequest.php` - OTP validation
+- `database/migrations/*_create_phone_otps_table.php` - OTP storage
+- `database/migrations/*_add_phone_to_users_table.php` - Phone column
+- `config/sms.php` - SMS provider configuration
+
+**Modified Files:**
+- `routes/api.php` - Add V2 routes
+- `app/Models/User.php` - Add phone to fillable
+
+### Database
+
+**phone_otps table:**
+```
+- id
+- phone       - Phone number (E.164 format)
+- code        - 6-digit OTP
+- expires_at  - 10 minutes from creation
+- verified_at - Null until used
+- timestamps
+```
+
+**users table (new column):**
+```
+- phone  - Nullable, unique
+```
+
+### SMS Provider Options
+- **Twilio** - Most popular, easy setup, free trial
+- **Vonage** - Good alternative, competitive pricing
+- **AWS SNS** - Cheapest if already on AWS
+- **Log driver** - Development only (no real SMS)
+
+### Security
+- ✅ OTP expires after 10 minutes
+- ✅ OTP is single-use (marked verified after use)
+- ✅ Max 3 OTP requests per hour per phone (rate limiting)
+- ✅ Max 5 verification attempts per OTP (brute force protection)
+- ✅ Phone in E.164 format validation (`+1234567890`)
+- ✅ Same JWT middleware as V1 (reused)
+
+### Estimated Time
+- OTP Service: 1 hour
+- SMS Service: 30 min
+- V2 Controller + Requests: 1.5 hours
+- Database migrations: 30 min
+- Routes + Testing: 30 min
+- **Total: ~4 hours**
+
+### When to Build
+- ✅ After V1 is 100% complete
+- ✅ When you have chosen an SMS provider
+- ✅ When you have a Twilio/Vonage account (or use log driver)
 
 ---
