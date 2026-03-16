@@ -15,8 +15,9 @@ A complete step-by-step guide documenting how we built this JWT-based API Gatewa
 7. [Step 6: Admin Middleware](#step-6-admin-middleware)
 8. [Step 7: Admin Role Management](#step-7-admin-role-management)
 9. [Step 8: Token Refresh](#step-8-token-refresh)
-10. [Step 9: Security Audit](#step-9-security-audit)
-11. [Step 10: Docker Setup](#step-10-docker-setup)
+10. [Step 9: CORS Configuration](#step-9-cors-configuration)
+11. [Step 10: Security Audit](#step-10-security-audit)
+12. [Step 11: Docker Setup](#step-11-docker-setup)
 12. [Architecture Decisions](#architecture-decisions)
 13. [Security Considerations](#security-considerations)
 
@@ -859,7 +860,58 @@ axios.interceptors.response.use(
 
 ---
 
-## Step 9: Security Audit
+## Step 9: CORS Configuration
+
+### Purpose
+Allow frontend applications (browsers) to make cross-origin requests to the API.
+
+### Why CORS?
+Browsers block requests from a different origin (domain/port) by default. Without CORS headers, a frontend at `https://app.example.com` cannot call `https://api.example.com`.
+
+### How Laravel Handles It
+Laravel 12 includes `HandleCors` middleware globally by default. It reads from `config/cors.php` automatically — no manual middleware registration needed.
+
+### File Created
+`config/cors.php`
+
+```php
+return [
+    'paths' => ['api/*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
+    'allowed_origins_patterns' => [],
+    'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With'],
+    'exposed_headers' => [],
+    'max_age' => 0,
+    'supports_credentials' => false,
+];
+```
+
+### File Modified
+`.env.example` — Added:
+```env
+# CORS Configuration
+# Use * to allow all origins, or comma-separated list: https://app.example.com,https://admin.example.com
+CORS_ALLOWED_ORIGINS=*
+```
+
+### Configuration Options
+
+| Setting | Development | Production |
+|---|---|---|
+| `CORS_ALLOWED_ORIGINS` | `*` | `https://app.example.com` |
+| `allowed_methods` | All | All |
+| `supports_credentials` | false | false |
+
+### Security
+- ✅ Origins configurable per environment via `CORS_ALLOWED_ORIGINS`
+- ✅ Only `api/*` paths affected (not web routes)
+- ✅ Only necessary headers allowed
+- ✅ Credentials disabled by default
+
+---
+
+## Step 10: Security Audit
 
 ### Purpose
 Identify and fix security vulnerabilities.
@@ -955,7 +1007,7 @@ php artisan test
 
 ---
 
-## Step 9: Docker Setup
+## Step 11: Docker Setup
 
 ### Purpose
 Containerize the application for consistent deployment across environments.
@@ -1265,17 +1317,17 @@ curl -X GET http://localhost:8000/api/profile \
 6. Admin middleware for admin-only routes
 7. Admin role management endpoint
 8. Token refresh endpoint
-9. Security audit and fixes
-10. Docker containerization
-11. MySQL database integration
-12. Postman collection for testing
+9. CORS configuration
+10. Security audit and fixes
+11. Docker containerization
+12. MySQL database integration
+13. Postman collection for testing
 
 ### 🚧 Future Features
-1. CORS configuration
-2. Logout with token blacklist
-3. Rate limiting
-4. Request logging
-5. Service proxy (build last - most complex)
+1. Logout with token blacklist
+2. Rate limiting
+3. Request logging
+4. Service proxy (build last - most complex)
 
 ---
 
@@ -1305,11 +1357,10 @@ curl -X GET http://localhost:8000/api/profile \
 ## Next Steps
 
 To continue building:
-1. Add CORS configuration
-2. Build logout with blacklist
-3. Add rate limiting
-4. Implement request logging
-5. Build service proxy (LAST - most complex, integrates all features)
+1. Build logout with blacklist
+2. Add rate limiting
+3. Implement request logging
+4. Build service proxy (LAST - most complex, integrates all features)
 
 ---
 

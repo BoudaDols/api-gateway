@@ -32,7 +32,7 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ Token refresh endpoint
 - ✅ Stateless authentication (no sessions)
 - ✅ Token expiration handling
-- 🚧 CORS configuration (coming soon)
+- ✅ CORS configuration
 - 🚧 Logout with token blacklist (coming soon)
 - 🚧 Rate limiting (coming soon)
 - 🚧 Request logging (coming soon)
@@ -397,6 +397,26 @@ api-gateway/
 
 ## Configuration
 
+## CORS Configuration
+
+### Settings (`config/cors.php`)
+
+```php
+'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
+'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With'],
+```
+
+Set `CORS_ALLOWED_ORIGINS` in `.env` to restrict origins in production:
+
+```env
+# Allow all (development)
+CORS_ALLOWED_ORIGINS=*
+
+# Restrict to specific origins (production)
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
 ### JWT Settings (`config/jwt.php`)
 
 ```php
@@ -460,7 +480,7 @@ The collection includes:
 - [x] Admin middleware
 - [x] Update user role endpoint (admin only)
 - [x] Token refresh endpoint
-- [ ] CORS configuration
+- [x] CORS configuration
 - [ ] Logout endpoint
 - [ ] Rate limiting
 - [ ] Request logging
