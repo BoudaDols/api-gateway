@@ -447,22 +447,22 @@ Authorization: Bearer OLD_OR_EXPIRED_TOKEN
 
 ---
 
-## 🚧 Next Steps (Priority Order)
+### 13. Logout with Token Blacklist
+**Status:** ✅ Complete
 
-### Priority 1: Logout with Token Blacklist
-**Purpose:** Revoke tokens before expiration
-
-**What to build:**
-- Blacklist table in database
-- Logout endpoint to blacklist token
-- Middleware check against blacklist
-- Cleanup job for expired tokens
+**What we built:**
+- `token_blacklist` table to store revoked tokens
+- `TokenBlacklistService` with `blacklist()`, `isBlacklisted()`, `purgeExpired()` methods
+- `POST /api/auth/logout` endpoint (JWT protected)
+- Blacklist check in `JwtMiddleware` after signature validation
+- `tokens:purge` artisan command scheduled daily to clean expired tokens
 
 **Endpoint:** `POST /api/auth/logout`
 
 **Request:**
-```
-Authorization: Bearer JWT_TOKEN
+```http
+POST /api/auth/logout
+Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
 **Response:**
@@ -473,20 +473,27 @@ Authorization: Bearer JWT_TOKEN
 }
 ```
 
-**Files to create:**
+**Files:**
 - `database/migrations/*_create_token_blacklist_table.php`
 - `app/Models/TokenBlacklist.php`
 - `app/Services/TokenBlacklistService.php`
+- `app/Console/Commands/PurgeExpiredTokens.php`
+- `app/Http/Controllers/AuthController.php` - Added logout()
+- `app/Http/Middleware/JwtMiddleware.php` - Added blacklist check
+- `routes/api.php` - Added logout route
+- `routes/console.php` - Registered daily purge schedule
 
-**Files to modify:**
-- `app/Http/Middleware/JwtMiddleware.php` - Check blacklist
-- `app/Http/Controllers/AuthController.php` - Add logout
-
-**Estimated time:** 2 hours
+**Security:**
+- ✅ Blacklist check after signature validation (no wasted DB queries on invalid tokens)
+- ✅ Token stored with `expires_at` for automatic cleanup
+- ✅ Revoked tokens return 401 even if not expired
+- ✅ Cleanup command prevents table bloat
 
 ---
 
-### Priority 3: Rate Limiting
+## 🚧 Next Steps (Priority Order)
+
+### Priority 1: Rate Limiting
 **Purpose:** Protect API from abuse
 
 **What to build:**
@@ -590,7 +597,7 @@ Headers:
 
 ## Summary
 
-### Completed (12 features)
+### Completed (13 features)
 1. ✅ JWT Authentication System
 2. ✅ User Registration
 3. ✅ User Login
@@ -603,12 +610,12 @@ Headers:
 10. ✅ Admin Role Management
 11. ✅ Token Refresh
 12. ✅ CORS Configuration
+13. ✅ Logout with Token Blacklist
 
-### Next Steps (4 features)
-1. 🚧 Logout with Blacklist (2 hours)
-2. 🚧 Rate Limiting (2 hours)
-3. 🚧 Request Logging (2 hours)
-4. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
+### Next Steps (3 features)
+1. 🚧 Rate Limiting (2 hours)
+2. 🚧 Request Logging (2 hours)
+3. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
 
 ### Total Estimated Time for Next Steps
 **~8-9 hours** to complete all remaining features
@@ -625,9 +632,9 @@ Headers:
 - ✅ Admin Role Management
 - ✅ Token Refresh
 
-**Phase 2: Production Configuration (2.5 hours)**
-- 🚧 CORS Configuration
-- 🚧 Logout with Blacklist
+**Phase 2: Production Configuration (COMPLETE ✅)**
+- ✅ CORS Configuration
+- ✅ Logout with Blacklist
 
 **Phase 3: Production Features (4 hours)**
 - 🚧 Rate Limiting
@@ -638,7 +645,7 @@ Headers:
 
 ---
 
-**Current Status:** 75% Complete (12/16 features)
+**Current Status:** 81.25% Complete (13/16 features)
 **Production Ready:** After Phase 3 (93.75% complete)
 **Full Gateway:** After Phase 4 (100% complete)
 

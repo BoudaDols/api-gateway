@@ -33,7 +33,7 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ Stateless authentication (no sessions)
 - ✅ Token expiration handling
 - ✅ CORS configuration
-- 🚧 Logout with token blacklist (coming soon)
+- ✅ Logout with token blacklist
 - 🚧 Rate limiting (coming soon)
 - 🚧 Request logging (coming soon)
 - 🚧 Service proxy (coming soon)
@@ -242,6 +242,20 @@ Content-Type: application/json
 **Note:** Only users with 'admin' role can update user roles. Valid roles are 'user' and 'admin'.
 
 ### Token Management
+
+#### Logout
+```http
+POST /api/auth/logout
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
 
 #### Refresh Token
 ```http
@@ -481,7 +495,7 @@ The collection includes:
 - [x] Update user role endpoint (admin only)
 - [x] Token refresh endpoint
 - [x] CORS configuration
-- [ ] Logout endpoint
+- [x] Logout endpoint
 - [ ] Rate limiting
 - [ ] Request logging
 - [ ] Service proxy (build last)

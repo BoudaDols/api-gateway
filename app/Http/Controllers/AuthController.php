@@ -6,6 +6,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use App\Services\JWTService;
+use App\Services\TokenBlacklistService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     public function __construct(
-        private JWTService $jwtService
+        private JWTService $jwtService,
+        private TokenBlacklistService $blacklistService
     ) {}
 
     /**
@@ -90,6 +92,22 @@ class AuthController extends Controller
                     'role' => $user->role,
                 ]
             ]
+        ]);
+    }
+
+    /**
+     * Logout - blacklist the current token
+     */
+    public function logout(Request $request): JsonResponse
+    {
+        $token = $request->bearerToken();
+        $payload = $this->jwtService->validateToken($token);
+
+        $this->blacklistService->blacklist($token, $payload['exp']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully'
         ]);
     }
 

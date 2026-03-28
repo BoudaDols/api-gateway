@@ -24,6 +24,7 @@ Route::middleware('jwt')->group(function () {
             ]
         ]);
     });
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
 });
 
 // Admin routes (require JWT + admin role)

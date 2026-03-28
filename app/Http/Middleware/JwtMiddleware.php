@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\JWTService;
+use App\Services\TokenBlacklistService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -10,7 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 class JwtMiddleware
 {
     public function __construct(
-        private JWTService $jwtService
+        private JWTService $jwtService,
+        private TokenBlacklistService $blacklistService
     ) {}
 
     /**
@@ -35,6 +37,14 @@ class JwtMiddleware
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired token'
+            ], 401);
+        }
+
+        // Check token is not blacklisted (logged out)
+        if ($this->blacklistService->isBlacklisted($token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token has been revoked. Please login again.'
             ], 401);
         }
 
