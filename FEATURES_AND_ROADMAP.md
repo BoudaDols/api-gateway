@@ -491,34 +491,40 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 ---
 
-## 🚧 Next Steps (Priority Order)
+### 14. Rate Limiting
+**Status:** ✅ Complete
 
-### Priority 1: Rate Limiting
-**Purpose:** Protect API from abuse
+**What we built:**
+- 3 named rate limiters defined in `AppServiceProvider`
+- `login` — 5 attempts per minute per IP (brute force protection)
+- `register` — 10 attempts per hour per IP (spam protection)
+- `api` — 60 requests per minute per IP (general abuse protection)
+- JSON 429 response override in `bootstrap/app.php`
 
-**What to build:**
-- Rate limiting middleware
-- Redis/database storage for counters
-- Configurable limits per endpoint
-- Return 429 when limit exceeded
-
-**Configuration:**
-```php
-// config/ratelimit.php
-'login' => ['max' => 5, 'decay' => 60],      // 5 attempts per minute
-'register' => ['max' => 3, 'decay' => 3600], // 3 per hour
-'api' => ['max' => 100, 'decay' => 60],      // 100 per minute
+**Response when limit exceeded:**
+```json
+{
+  "success": false,
+  "message": "Too many requests. Please slow down."
+}
 ```
 
-**Files to create:**
-- `config/ratelimit.php` - Configuration
-- `app/Http/Middleware/RateLimitMiddleware.php` - Logic
+**Files:**
+- `app/Providers/AppServiceProvider.php` - Rate limiter definitions
+- `routes/api.php` - throttle middleware attached to routes
+- `bootstrap/app.php` - JSON 429 response override
 
-**Estimated time:** 2 hours
+**Security:**
+- ✅ Login brute force protection (5/min)
+- ✅ Registration spam protection (10/hour)
+- ✅ General API abuse protection (60/min)
+- ✅ IP-based limiting (no auth required to limit)
 
 ---
 
-### Priority 4: Request Logging
+## 🚧 Next Steps (Priority Order)
+
+### Priority 1: Request Logging
 **Purpose:** Track API usage and debug issues
 
 **What to build:**
@@ -597,7 +603,7 @@ Headers:
 
 ## Summary
 
-### Completed (13 features)
+### Completed (14 features)
 1. ✅ JWT Authentication System
 2. ✅ User Registration
 3. ✅ User Login
@@ -611,11 +617,11 @@ Headers:
 11. ✅ Token Refresh
 12. ✅ CORS Configuration
 13. ✅ Logout with Token Blacklist
+14. ✅ Rate Limiting
 
-### Next Steps (3 features)
-1. 🚧 Rate Limiting (2 hours)
-2. 🚧 Request Logging (2 hours)
-3. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
+### Next Steps (2 features)
+1. 🚧 Request Logging (2 hours)
+2. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
 
 ### Total Estimated Time for Next Steps
 **~8-9 hours** to complete all remaining features
@@ -636,8 +642,8 @@ Headers:
 - ✅ CORS Configuration
 - ✅ Logout with Blacklist
 
-**Phase 3: Production Features (4 hours)**
-- 🚧 Rate Limiting
+**Phase 3: Production Features (IN PROGRESS 🚧)**
+- ✅ Rate Limiting
 - 🚧 Request Logging
 
 **Phase 4: Gateway Core (2-3 hours) - BUILD LAST**
@@ -645,7 +651,7 @@ Headers:
 
 ---
 
-**Current Status:** 81.25% Complete (13/16 features)
+**Current Status:** 87.5% Complete (14/16 features)
 **Production Ready:** After Phase 3 (93.75% complete)
 **Full Gateway:** After Phase 4 (100% complete)
 

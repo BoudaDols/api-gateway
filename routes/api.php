@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Route;
 
 // Auth routes (public - no authentication required)
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('register', [AuthController::class, 'register']);
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:register');
     Route::post('refresh', [AuthController::class, 'refresh']);
 });
 
 // Protected routes (require JWT authentication)
-Route::middleware('jwt')->group(function () {
+Route::middleware(['jwt', 'throttle:api'])->group(function () {
     Route::get('/profile', function (Request $request) {
         return response()->json([
             'success' => true,
@@ -28,7 +28,7 @@ Route::middleware('jwt')->group(function () {
 });
 
 // Admin routes (require JWT + admin role)
-Route::middleware(['jwt', 'admin'])->prefix('admin')->group(function () {
+Route::middleware(['jwt', 'admin', 'throttle:api'])->prefix('admin')->group(function () {
     Route::put('/users/role', [AdminController::class, 'updateRole']);
 });
 

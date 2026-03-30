@@ -34,7 +34,7 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ Token expiration handling
 - ✅ CORS configuration
 - ✅ Logout with token blacklist
-- 🚧 Rate limiting (coming soon)
+- ✅ Rate limiting
 - 🚧 Request logging (coming soon)
 - 🚧 Service proxy (coming soon)
 
@@ -496,7 +496,7 @@ The collection includes:
 - [x] Token refresh endpoint
 - [x] CORS configuration
 - [x] Logout endpoint
-- [ ] Rate limiting
+- [x] Rate limiting
 - [ ] Request logging
 - [ ] Service proxy (build last)
 
