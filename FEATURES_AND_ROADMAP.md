@@ -522,35 +522,49 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 ---
 
-## 🚧 Next Steps (Priority Order)
+### 15. Request Logging
+**Status:** ✅ Complete
 
-### Priority 1: Request Logging
-**Purpose:** Track API usage and debug issues
+**What we built:**
+- `stdout` log channel in `config/logging.php` using Monolog `JsonFormatter`
+- `LogRequestMiddleware` that logs every API request as structured JSON
+- Registered globally on the `api` middleware group
 
-**What to build:**
-- Logging middleware
-- Log request/response details
-- Store in database or files
-- Dashboard to view logs (optional)
+**Log format (one line per request):**
+```json
+{"timestamp":"2024-01-15T10:30:00Z","method":"POST","url":"api/auth/login","status":200,"duration_ms":45,"ip":"192.168.1.1","user":null}
+```
 
-**What to log:**
-- Timestamp
-- Method + URL
-- User email (if authenticated)
-- Response status
-- Response time
-- IP address
+**Fields logged:**
+- `timestamp` - ISO 8601
+- `method` - HTTP verb
+- `url` - request path
+- `status` - response status code
+- `duration_ms` - response time in milliseconds
+- `ip` - client IP address
+- `user` - authenticated user email (null if unauthenticated)
 
-**Files to create:**
-- `database/migrations/*_create_api_logs_table.php`
-- `app/Models/ApiLog.php`
-- `app/Http/Middleware/LogRequestMiddleware.php`
+**What is NOT logged (security):**
+- Request body (could contain passwords)
+- Request headers (could contain tokens)
+- Response body (could contain sensitive data)
 
-**Estimated time:** 2 hours
+**Files:**
+- `app/Http/Middleware/LogRequestMiddleware.php` - Logging logic
+- `config/logging.php` - Added `stdout` channel with `JsonFormatter`
+- `bootstrap/app.php` - Registered middleware on `api` group
+
+**Cloud compatibility:**
+- ✅ Writes to stdout — captured by Docker automatically
+- ✅ JSON format — parsed natively by CloudWatch, Datadog, ELK
+- ✅ Zero DB overhead
+- ✅ Works with AWS ECS, GCP Cloud Run, Kubernetes
 
 ---
 
-### Priority 5: Service Proxy/Gateway (BUILD LAST)
+## 🚧 Next Steps (Priority Order)
+
+### Priority 1: Service Proxy/Gateway (BUILD LAST)
 **Purpose:** Forward authenticated requests to microservices
 
 **What to build:**
@@ -603,7 +617,7 @@ Headers:
 
 ## Summary
 
-### Completed (14 features)
+### Completed (15 features)
 1. ✅ JWT Authentication System
 2. ✅ User Registration
 3. ✅ User Login
@@ -618,10 +632,10 @@ Headers:
 12. ✅ CORS Configuration
 13. ✅ Logout with Token Blacklist
 14. ✅ Rate Limiting
+15. ✅ Request Logging
 
-### Next Steps (2 features)
-1. 🚧 Request Logging (2 hours)
-2. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
+### Next Steps (1 feature)
+1. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
 
 ### Total Estimated Time for Next Steps
 **~8-9 hours** to complete all remaining features
@@ -642,16 +656,16 @@ Headers:
 - ✅ CORS Configuration
 - ✅ Logout with Blacklist
 
-**Phase 3: Production Features (IN PROGRESS 🚧)**
+**Phase 3: Production Features (COMPLETE ✅)**
 - ✅ Rate Limiting
-- 🚧 Request Logging
+- ✅ Request Logging
 
 **Phase 4: Gateway Core (2-3 hours) - BUILD LAST**
 - 🚧 Service Proxy/Gateway ⭐
 
 ---
 
-**Current Status:** 87.5% Complete (14/16 features)
+**Current Status:** 93.75% Complete (15/16 features)
 **Production Ready:** After Phase 3 (93.75% complete)
 **Full Gateway:** After Phase 4 (100% complete)
 

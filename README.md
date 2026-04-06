@@ -35,7 +35,7 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ CORS configuration
 - ✅ Logout with token blacklist
 - ✅ Rate limiting
-- 🚧 Request logging (coming soon)
+- ✅ Request logging
 - 🚧 Service proxy (coming soon)
 
 ## Requirements
@@ -497,7 +497,7 @@ The collection includes:
 - [x] CORS configuration
 - [x] Logout endpoint
 - [x] Rate limiting
-- [ ] Request logging
+- [x] Request logging
 - [ ] Service proxy (build last)
 
 ## Contributing
