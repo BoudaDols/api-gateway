@@ -606,9 +606,18 @@ X-User-Role: user
 
 ---
 
-## 🚧 Next Steps (Priority Order)
+## 🔮 Future Enhancements
 
-### Priority 1: Prometheus Metrics Endpoint (~1 hour)
+### Observability (cloud-native, no app changes needed)
+- See **Prometheus Metrics / Observability** section below for AWS, Kubernetes, and Vector approaches
+
+### V2 Phone/OTP Authentication (~4 hours)
+- Build after V1 is deployed and stable
+- Requires choosing an SMS provider (Twilio, Vonage, AWS SNS)
+
+### Redis-backed Metrics (~2 hours, optional)
+- Only needed for self-hosted deployments without a log pipeline
+- Adds Redis dependency
 
 ### Completed (16 features)
 1. ✅ JWT Authentication System
@@ -629,11 +638,9 @@ X-User-Role: user
 16. ✅ Service Proxy/Gateway
 
 ### Future (after V1)
-- 🔮 Prometheus Metrics Endpoint (~1 hour)
+- 📝 Observability via CloudWatch / Fluent Bit / Vector (documented, no app changes)
 - 🔮 V2 Phone/OTP Authentication (~4 hours)
-
-### Total Estimated Time for Next Steps
-**~8-9 hours** to complete all remaining features
+- 🔮 Redis-backed Metrics (~2 hours, self-hosted only)
 
 ---
 
@@ -658,8 +665,8 @@ X-User-Role: user
 **Phase 4: Gateway Core (COMPLETE ✅)**
 - ✅ Service Proxy/Gateway
 
-**Phase 5: Observability (~1 hour) - after V1**
-- 🔮 Prometheus Metrics Endpoint
+**Phase 5: Observability (infrastructure level — no app changes)**
+- 📝 CloudWatch / Fluent Bit / Vector (see Observability section)
 
 ---
 
@@ -692,28 +699,54 @@ If you don't need a proxy, you can:
 
 ---
 
-## 🔮 Future: Prometheus Metrics Endpoint
+## 🔮 Future: Prometheus Metrics / Observability
 
-**Status:** 💻 Planned (build after Service Proxy)
+**Status:** 📝 Documented (not implemented in app — handled at infrastructure level)
 
-**Purpose:** Expose a `/metrics` endpoint for Prometheus to scrape, enabling real-time dashboards in Grafana.
+**Why not a PHP `/metrics` endpoint:**
+A PHP-based `/metrics` endpoint using APCu is per-process only. In production with multiple PHP-FPM workers and multiple container replicas, each process has its own memory — Prometheus would get partial, inaccurate counts. It is not suitable for cloud deployments.
 
-**What to build:**
-- `GET /metrics` endpoint (public, no JWT)
-- Counters: `api_requests_total` by method, route, status
-- Histogram: `api_request_duration_seconds` by route
-- Gauge: `api_active_users_total`
+**The cloud-native approach (recommended):**
 
-**Stack:**
-- `promphp/prometheus_client_php` package
-- Metrics stored in APCu (in-memory, zero DB overhead)
+The stdout JSON logs already emitted by `LogRequestMiddleware` are the correct foundation. Metrics are derived from logs at the infrastructure level — no app changes needed.
 
-**Cloud integration:**
+**On AWS:**
 ```
-/metrics → Prometheus scrapes every 15s → Grafana dashboards
+stdout JSON → CloudWatch Logs
+           → CloudWatch Metric Filters (count requests, errors, latency)
+           → CloudWatch Alarms (alert on 5xx spike, high latency)
+           → Grafana (via CloudWatch datasource)
+```
+Example metric filter — count all 5xx errors:
+```
+{ $.status >= 500 }
 ```
 
-**Estimated time:** ~1 hour
+**On Kubernetes:**
+```
+stdout JSON → Fluent Bit sidecar → Loki (logs) + Prometheus (metrics)
+                                 → Grafana dashboards
+```
+Fluent Bit reads stdout, parses the JSON, and emits Prometheus metrics automatically.
+
+**On any platform with Vector:**
+```
+stdout JSON → Vector → Prometheus remote_write → Grafana
+```
+Vector is a lightweight log/metrics pipeline that can transform log lines into Prometheus metrics.
+
+**If Redis-backed PHP metrics are needed (self-hosted):**
+- Use `promphp/prometheus_client_php` with Redis storage
+- Redis is shared across all workers and pods — accurate counts
+- Adds Redis as a dependency
+- Estimated time: ~2 hours
+
+**What Prometheus would scrape (example metrics from logs):**
+```
+api_requests_total{method="POST",route="api/auth/login",status="200"} 42
+api_requests_total{method="POST",route="api/auth/login",status="401"} 7
+api_request_duration_ms_avg{route="api/auth/login"} 45
+```
 
 ---
 
