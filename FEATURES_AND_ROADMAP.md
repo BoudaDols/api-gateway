@@ -750,61 +750,218 @@ api_request_duration_ms_avg{route="api/auth/login"} 45
 
 ---
 
+
 ## 🔮 Future Version: V2 - Phone/OTP Authentication
 
 **Status:** 📋 Planned (build after V1 is 100% complete)
+**Estimated Total Time:** ~4 hours (log driver) / ~5 hours (real SMS provider)
+**Prerequisite:** Choose SMS provider before starting
 
 ### Overview
-A second version of the API Gateway that uses **phone number + SMS OTP** instead of email + password. Works exactly the same as V1 but with a different authentication method.
+A parallel authentication system running alongside V1. Same JWT, same middleware, same gateway — different identity method: **phone number + SMS OTP** instead of email + password.
 
-### Architecture
 ```
-V1: POST /api/auth/register     (email + password)
-V2: POST /api/v2/auth/register  (phone + OTP)
-```
-
-### Registration Flow
-```
-1. Client sends phone number
-   POST /api/v2/auth/register
-   {"phone": "+1234567890", "name": "John Doe"}
-
-2. Gateway generates 6-digit OTP, stores it, sends SMS
-   Response: {"message": "OTP sent to +1234567890"}
-
-3. Client sends OTP to verify
-   POST /api/v2/auth/register/verify
-   {"phone": "+1234567890", "code": "123456"}
-
-4. Gateway verifies OTP, creates user, returns JWT
-   Response: {"token": "eyJ0eXAiOiJKV1Qi..."}
+V1: email + password → JWT
+V2: phone + OTP     → JWT (same format, same middleware)
 ```
 
-### Login Flow
-```
-1. Client sends phone number
-   POST /api/v2/auth/login
-   {"phone": "+1234567890"}
+---
 
-2. Gateway generates OTP, sends SMS
-   Response: {"message": "OTP sent to +1234567890"}
+### Build Steps
 
-3. Client sends OTP to verify
-   POST /api/v2/auth/login/verify
-   {"phone": "+1234567890", "code": "123456"}
+#### Step 1: Database Migrations (~30 min)
+**Status:** 📝 Not started
 
-4. Gateway verifies OTP, returns JWT
-   Response: {"token": "eyJ0eXAiOiJKV1Qi..."}
+**Files to create:**
+- `database/migrations/*_add_phone_to_users_table.php`
+  - Add `phone` column (nullable, unique) to `users` table
+- `database/migrations/*_create_phone_otps_table.php`
+  - Create `phone_otps` table
+
+**phone_otps table schema:**
+```
+id           - bigint, primary key
+phone        - varchar, E.164 format (+1234567890)
+code         - varchar(6), 6-digit OTP
+type         - enum('register', 'login') - purpose of OTP
+expires_at   - timestamp, 10 minutes from creation
+verified_at  - timestamp, null until used (single-use enforcement)
+timestamps
 ```
 
-### Endpoints
+**users table change:**
 ```
-POST /api/v2/auth/register         - Send OTP for registration
-POST /api/v2/auth/register/verify  - Verify OTP + create user
-POST /api/v2/auth/login            - Send OTP for login
-POST /api/v2/auth/login/verify     - Verify OTP + get JWT
-POST /api/v2/auth/refresh          - Refresh token (same as V1)
+phone  - varchar, nullable, unique
 ```
+
+---
+
+#### Step 2: SMS Configuration (~15 min)
+**Status:** 📝 Not started
+
+**Files to create:**
+- `config/sms.php` — driver selection + provider credentials
+
+```php
+return [
+    'driver' => env('SMS_DRIVER', 'log'), // log | twilio | vonage | aws_sns
+    'twilio' => [
+        'sid'   => env('TWILIO_SID'),
+        'token' => env('TWILIO_TOKEN'),
+        'from'  => env('TWILIO_FROM'),
+    ],
+    'vonage' => [
+        'key'    => env('VONAGE_KEY'),
+        'secret' => env('VONAGE_SECRET'),
+        'from'   => env('VONAGE_FROM'),
+    ],
+    'aws_sns' => [
+        'key'    => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    ],
+];
+```
+
+**Files to modify:**
+- `.env.example` — add SMS driver variables
+
+---
+
+#### Step 3: OtpService (~1 hour)
+**Status:** 📝 Not started
+
+**File to create:** `app/Services/OtpService.php`
+
+**Methods:**
+- `generate(string $phone, string $type): string` — creates 6-digit code, stores in DB, returns code
+- `verify(string $phone, string $code, string $type): bool` — checks code is valid, not expired, not used, marks as verified
+- `canRequest(string $phone): bool` — max 3 OTP requests per hour per phone
+- `attemptsExceeded(string $phone, string $code): bool` — max 5 wrong attempts per OTP
+
+**Security rules enforced:**
+- OTP expires after 10 minutes
+- OTP is single-use (verified_at set on first successful use)
+- Max 3 OTP requests per hour per phone (brute force protection)
+- Max 5 verification attempts per OTP (prevents guessing)
+
+---
+
+#### Step 4: SmsService (~30 min)
+**Status:** 📝 Not started
+
+**File to create:** `app/Services/SmsService.php`
+
+**Methods:**
+- `send(string $phone, string $message): void` — dispatches to correct driver
+
+**Drivers:**
+
+| Driver | How it works | Use case |
+|---|---|---|
+| `log` | Writes OTP to `storage/logs/laravel.log` | Development |
+| `twilio` | Calls Twilio REST API via Guzzle | Production |
+| `vonage` | Calls Vonage REST API via Guzzle | Production |
+| `aws_sns` | Uses AWS SDK `SnsClient::publish()` | Production (AWS) |
+
+**Start with `log` driver** — build and test everything without a real SMS account. Switch to real driver when ready to deploy.
+
+---
+
+#### Step 5: Form Requests (~15 min)
+**Status:** 📝 Not started
+
+**Files to create:**
+- `app/Http/Requests/V2/SendOtpRequest.php`
+  - `phone` — required, regex E.164 format: `/^\+[1-9]\d{7,14}$/`
+  - `name` — required for register only
+- `app/Http/Requests/V2/VerifyOtpRequest.php`
+  - `phone` — required, E.164 format
+  - `otp` — required, digits only, exactly 6 characters
+
+---
+
+#### Step 6: V2 AuthController (~1.5 hours)
+**Status:** 📝 Not started
+
+**File to create:** `app/Http/Controllers/V2/AuthController.php`
+
+**Methods:**
+
+`register(SendOtpRequest $request)` — Step 1 of registration
+```
+→ Check phone not already registered
+→ Check OtpService::canRequest() (rate limit)
+→ OtpService::generate(phone, 'register')
+→ SmsService::send(phone, "Your OTP is: {code}")
+→ Return { success: true, message: "OTP sent" }
+```
+
+`registerVerify(VerifyOtpRequest $request)` — Step 2 of registration
+```
+→ OtpService::verify(phone, otp, 'register')
+→ Create user with phone + name, role = 'user'
+→ JWTService::generateToken(phone, name, role)
+→ Return token + user data (201)
+```
+
+`login(SendOtpRequest $request)` — Step 1 of login
+```
+→ Check OtpService::canRequest() (rate limit)
+→ OtpService::generate(phone, 'login')
+→ SmsService::send(phone, "Your OTP is: {code}")
+→ Return { success: true, message: "OTP sent" }
+  (same message whether phone exists or not — security)
+```
+
+`loginVerify(VerifyOtpRequest $request)` — Step 2 of login
+```
+→ OtpService::verify(phone, otp, 'login')
+→ Find user by phone
+→ JWTService::generateToken(phone, name, role)
+→ Return token + user data
+```
+
+---
+
+#### Step 7: Routes (~15 min)
+**Status:** 📝 Not started
+
+**File to modify:** `routes/api.php`
+
+```php
+// V2 Auth routes (phone + OTP)
+Route::prefix('v2/auth')->group(function () {
+    Route::post('register',        [V2AuthController::class, 'register']);
+    Route::post('register/verify', [V2AuthController::class, 'registerVerify']);
+    Route::post('login',           [V2AuthController::class, 'login']);
+    Route::post('login/verify',    [V2AuthController::class, 'loginVerify']);
+    // refresh + logout reuse V1 endpoints
+});
+```
+
+**Note:** Token refresh and logout are shared with V1 — no new routes needed.
+
+---
+
+#### Step 8: Update User Model (~5 min)
+**Status:** 📝 Not started
+
+**File to modify:** `app/Models/User.php`
+- Add `phone` to `$fillable`
+
+---
+
+#### Step 9: Tests (~30 min)
+**Status:** 📝 Not started
+
+**Files to create:**
+- `tests/Unit/OtpServiceTest.php` — generate, verify, expiry, single-use, rate limit
+- `tests/Unit/SmsServiceTest.php` — log driver writes to log, correct message format
+- `tests/Feature/V2/RegisterTest.php` — full registration flow, duplicate phone, rate limit
+- `tests/Feature/V2/LoginTest.php` — full login flow, unknown phone, wrong OTP, expired OTP
+
+---
 
 ### JWT Token Structure (V2)
 ```json
@@ -817,64 +974,41 @@ POST /api/v2/auth/refresh          - Refresh token (same as V1)
 }
 ```
 
-### Components to Build
+**Note:** No email in V2 token. Same JWT middleware works — it just reads whatever is in the token.
 
-**New Files:**
-- `app/Services/OtpService.php` - Generate, store, verify OTP
-- `app/Services/SmsService.php` - Send SMS (Twilio/Vonage/Log)
-- `app/Http/Controllers/V2/AuthController.php` - V2 auth logic
-- `app/Http/Requests/V2/RegisterRequest.php` - Phone validation
-- `app/Http/Requests/V2/VerifyOtpRequest.php` - OTP validation
-- `database/migrations/*_create_phone_otps_table.php` - OTP storage
-- `database/migrations/*_add_phone_to_users_table.php` - Phone column
-- `config/sms.php` - SMS provider configuration
-
-**Modified Files:**
-- `routes/api.php` - Add V2 routes
-- `app/Models/User.php` - Add phone to fillable
-
-### Database
-
-**phone_otps table:**
-```
-- id
-- phone       - Phone number (E.164 format)
-- code        - 6-digit OTP
-- expires_at  - 10 minutes from creation
-- verified_at - Null until used
-- timestamps
-```
-
-**users table (new column):**
-```
-- phone  - Nullable, unique
-```
+---
 
 ### SMS Provider Options
-- **Twilio** - Most popular, easy setup, free trial
-- **Vonage** - Good alternative, competitive pricing
-- **AWS SNS** - Cheapest if already on AWS
-- **Log driver** - Development only (no real SMS)
 
-### Security
-- ✅ OTP expires after 10 minutes
-- ✅ OTP is single-use (marked verified after use)
-- ✅ Max 3 OTP requests per hour per phone (rate limiting)
-- ✅ Max 5 verification attempts per OTP (brute force protection)
-- ✅ Phone in E.164 format validation (`+1234567890`)
-- ✅ Same JWT middleware as V1 (reused)
+| Provider | Free Trial | Price/SMS | Best for |
+|---|---|---|---|
+| Log driver | N/A | Free | Development |
+| Twilio | Yes ($15 credit) | ~$0.0075 | Most popular, easy setup |
+| Vonage | Yes (€2 credit) | ~$0.0065 | Good alternative |
+| AWS SNS | Yes (100 free/month) | ~$0.00645 | Already on AWS |
 
-### Estimated Time
-- OTP Service: 1 hour
-- SMS Service: 30 min
-- V2 Controller + Requests: 1.5 hours
-- Database migrations: 30 min
-- Routes + Testing: 30 min
-- **Total: ~4 hours**
+---
 
-### When to Build
-- ✅ After V1 is 100% complete
-- ✅ When you have chosen an SMS provider
-- ✅ When you have a Twilio/Vonage account (or use log driver)
+### What is reused from V1 (no changes needed)
+
+| Component | Reused as-is |
+|---|---|
+| `JWTService` | ✅ generateToken, validateToken, refreshToken |
+| `JwtMiddleware` | ✅ Works with any token payload |
+| `AdminMiddleware` | ✅ Checks user_role regardless of auth method |
+| `TokenBlacklistService` | ✅ Blacklists any JWT token |
+| `POST /api/auth/refresh` | ✅ Shared endpoint |
+| `POST /api/auth/logout` | ✅ Shared endpoint |
+| All admin routes | ✅ Unchanged |
+| Rate limiting | ✅ Add `otp` limiter in AppServiceProvider |
+| Request logging | ✅ Logs V2 routes automatically |
+
+---
+
+### Prerequisites before starting
+- [ ] Choose SMS provider (or confirm using `log` driver for now)
+- [ ] If Twilio: create account, get Account SID + Auth Token + phone number
+- [ ] If Vonage: create account, get API Key + Secret + sender name
+- [ ] If AWS SNS: IAM user with `sns:Publish` permission in correct region
 
 ---
