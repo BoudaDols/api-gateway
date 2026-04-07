@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\GatewayController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -32,9 +33,9 @@ Route::middleware(['jwt', 'admin', 'throttle:api'])->prefix('admin')->group(func
     Route::put('/users/role', [AdminController::class, 'updateRole']);
 });
 
-// Protected routes (require authentication - Sanctum)
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
+// Service proxy routes (require JWT authentication)
+Route::middleware(['jwt', 'throttle:api'])
+    ->group(function () {
+        Route::any('/services/{service}/{path}', [GatewayController::class, 'proxy'])
+            ->where('path', '.*');
     });
-});

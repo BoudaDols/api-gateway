@@ -562,62 +562,55 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 ---
 
-## 🚧 Next Steps (Priority Order)
+### 16. Service Proxy/Gateway
+**Status:** ✅ Complete
 
-### Priority 1: Service Proxy/Gateway (BUILD LAST)
-**Purpose:** Forward authenticated requests to microservices
-
-**What to build:**
-- Service registry configuration
-- Gateway controller to proxy requests
-- Add user context headers (X-User-Email, X-User-Role)
-- Forward requests with Guzzle HTTP client
-- Return microservice responses
-- Integrate rate limiting and logging
-
-**Architecture:**
-```
-Client → Gateway (validates JWT) → Microservice
-         ↓
-    Adds headers:
-    - X-User-Email
-    - X-User-Name
-    - X-User-Role
-```
+**What we built:**
+- `config/gateway.php` — dynamic service registry (auto-discovers `SERVICE_*_URL` env vars)
+- `ServiceProxyService` — forwards requests with user context headers
+- `GatewayController` — looks up service, calls proxy, returns response
+- Catch-all route `ANY /api/services/{service}/{path}`
+- 502 on connection failure, 404 on unknown service, 504 on timeout
 
 **Endpoint:** `ANY /api/services/{service}/{path}`
 
 **Example:**
 ```bash
-GET /api/services/orders/user-orders
+GET /api/services/orders/123
 Authorization: Bearer JWT_TOKEN
 
-# Gateway forwards to:
-GET http://order-service:3000/user-orders
-Headers:
-  X-User-Email: john@example.com
-  X-User-Role: user
+# Forwards to:
+GET http://order-service:3000/123
+X-User-Email: john@example.com
+X-User-Name: John Doe
+X-User-Role: user
 ```
 
-**Files to create:**
-- `config/services.php` - Service registry
-- `app/Http/Controllers/GatewayController.php` - Proxy logic
+**Files:**
+- `config/gateway.php` - Dynamic service registry (auto-discovers `SERVICE_*_URL` env vars)
 - `app/Services/ServiceProxyService.php` - HTTP forwarding
+- `app/Http/Controllers/GatewayController.php` - Proxy logic
+- `routes/api.php` - Catch-all proxy route
+- `.env.example` - Service URL variables (any `SERVICE_*_URL` is auto-registered)
 
-**Why build last:**
-- Most complex feature
-- Requires understanding of all other features
-- Should integrate rate limiting and logging
-- Hard to test without real microservices
-- Optional for authentication-only use case
+**Error responses:**
+- `404` - Service not in registry
+- `502` - Microservice is down
+- `504` - Microservice timed out
 
-**Estimated time:** 2-3 hours
+**Security:**
+- ✅ JWT required (jwt middleware)
+- ✅ Rate limited (throttle:api)
+- ✅ User context forwarded as headers (not JWT)
+- ✅ Microservices never see the JWT token
 
 ---
 
-## Summary
+## 🚧 Next Steps (Priority Order)
 
-### Completed (15 features)
+### Priority 1: Prometheus Metrics Endpoint (~1 hour)
+
+### Completed (16 features)
 1. ✅ JWT Authentication System
 2. ✅ User Registration
 3. ✅ User Login
@@ -633,9 +626,11 @@ Headers:
 13. ✅ Logout with Token Blacklist
 14. ✅ Rate Limiting
 15. ✅ Request Logging
+16. ✅ Service Proxy/Gateway
 
-### Next Steps (1 feature)
-1. 🚧 Service Proxy/Gateway (2-3 hours) ⭐ Build LAST
+### Future (after V1)
+- 🔮 Prometheus Metrics Endpoint (~1 hour)
+- 🔮 V2 Phone/OTP Authentication (~4 hours)
 
 ### Total Estimated Time for Next Steps
 **~8-9 hours** to complete all remaining features
@@ -660,14 +655,17 @@ Headers:
 - ✅ Rate Limiting
 - ✅ Request Logging
 
-**Phase 4: Gateway Core (2-3 hours) - BUILD LAST**
-- 🚧 Service Proxy/Gateway ⭐
+**Phase 4: Gateway Core (COMPLETE ✅)**
+- ✅ Service Proxy/Gateway
+
+**Phase 5: Observability (~1 hour) - after V1**
+- 🔮 Prometheus Metrics Endpoint
 
 ---
 
-**Current Status:** 93.75% Complete (15/16 features)
-**Production Ready:** After Phase 3 (93.75% complete)
-**Full Gateway:** After Phase 4 (100% complete)
+**Current Status:** 100% Complete (16/16 features) 🎉
+**V1 Production Ready:** YES
+**Next:** Prometheus metrics, then V2 Phone/OTP
 
 ---
 
@@ -691,6 +689,31 @@ If you don't need a proxy, you can:
 - Use this as authentication-only gateway
 - Let frontend call microservices directly
 - Use external gateway (Kong, Nginx, AWS API Gateway)
+
+---
+
+## 🔮 Future: Prometheus Metrics Endpoint
+
+**Status:** 💻 Planned (build after Service Proxy)
+
+**Purpose:** Expose a `/metrics` endpoint for Prometheus to scrape, enabling real-time dashboards in Grafana.
+
+**What to build:**
+- `GET /metrics` endpoint (public, no JWT)
+- Counters: `api_requests_total` by method, route, status
+- Histogram: `api_request_duration_seconds` by route
+- Gauge: `api_active_users_total`
+
+**Stack:**
+- `promphp/prometheus_client_php` package
+- Metrics stored in APCu (in-memory, zero DB overhead)
+
+**Cloud integration:**
+```
+/metrics → Prometheus scrapes every 15s → Grafana dashboards
+```
+
+**Estimated time:** ~1 hour
 
 ---
 
