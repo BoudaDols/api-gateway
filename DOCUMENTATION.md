@@ -716,19 +716,322 @@ docker-compose exec app php artisan migrate
 docker-compose logs -f app
 ```
 
-### AWS ECS
+### Kubernetes
 
-Add to your task definition to send stdout to CloudWatch:
-```json
-"logConfiguration": {
-  "logDriver": "awslogs",
-  "options": {
-    "awslogs-group": "/api-gateway",
-    "awslogs-region": "us-east-1",
-    "awslogs-stream-prefix": "api"
-  }
-}
+The following manifests cover a complete production-ready deployment. Adjust namespace, image, and resource values to match your environment.
+
+#### Namespace
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: api-gateway
 ```
+
+---
+
+#### Secret — sensitive environment variables
+Store JWT secret, DB password, and app key as a Kubernetes Secret. Never put these in ConfigMap.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-gateway-secret
+  namespace: api-gateway
+type: Opaque
+stringData:
+  APP_KEY: "base64:your-app-key-here"
+  JWT_SECRET: "your-strong-random-secret-min-32-chars"
+  DB_PASSWORD: "your-db-password"
+```
+
+---
+
+#### ConfigMap — non-sensitive environment variables
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: api-gateway
+data:
+  APP_NAME: "API Gateway"
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "https://api.example.com"
+  DB_CONNECTION: "mysql"
+  DB_HOST: "mysql-service"
+  DB_PORT: "3306"
+  DB_DATABASE: "api_gateway"
+  DB_USERNAME: "api_gateway_user"
+  JWT_TTL: "60"
+  JWT_REFRESH_TTL: "20160"
+  CORS_ALLOWED_ORIGINS: "https://app.example.com,https://admin.example.com"
+  GATEWAY_TIMEOUT: "10"
+  SERVICE_ORDERS_URL: "http://order-service.services.svc.cluster.local:3000"
+  SERVICE_PRODUCTS_URL: "http://product-service.services.svc.cluster.local:3001"
+  LOG_CHANNEL: "stdout"
+  CACHE_STORE: "database"
+  SESSION_DRIVER: "database"
+  QUEUE_CONNECTION: "database"
+```
+
+---
+
+#### Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: api-gateway
+  labels:
+    app: api-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: your-registry/api-gateway:latest
+          ports:
+            - containerPort: 80
+
+          # Load all env vars from ConfigMap and Secret
+          envFrom:
+            - configMapRef:
+                name: api-gateway-config
+            - secretRef:
+                name: api-gateway-secret
+
+          # Resource limits — adjust based on load testing
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /up
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /up
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+
+          # Stdout logs captured automatically by Kubernetes
+          # No log volume needed
+```
+
+---
+
+#### Service — expose the deployment internally
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+  namespace: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+```
+
+---
+
+#### Ingress — expose to the internet
+Requires an ingress controller (nginx-ingress, Traefik, AWS ALB, etc.).
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway-ingress
+  namespace: api-gateway
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # TLS via cert-manager
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: api-gateway-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway-service
+                port:
+                  number: 80
+```
+
+---
+
+#### HorizontalPodAutoscaler — auto-scale on CPU
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: api-gateway
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+```
+
+---
+
+#### CronJob — daily token blacklist purge
+Replaces the server cron. Runs `php artisan tokens:purge` daily at 2am.
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: purge-expired-tokens
+  namespace: api-gateway
+spec:
+  schedule: "0 2 * * *"  # daily at 2am UTC
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: purge
+              image: your-registry/api-gateway:latest
+              command: ["php", "artisan", "tokens:purge"]
+              envFrom:
+                - configMapRef:
+                    name: api-gateway-config
+                - secretRef:
+                    name: api-gateway-secret
+```
+
+---
+
+#### Fluent Bit sidecar — forward logs to Loki/CloudWatch
+Add this sidecar container to the Deployment spec to ship stdout logs.
+
+```yaml
+        - name: fluent-bit
+          image: fluent/fluent-bit:latest
+          volumeMounts:
+            - name: fluent-bit-config
+              mountPath: /fluent-bit/etc/
+      volumes:
+        - name: fluent-bit-config
+          configMap:
+            name: fluent-bit-config
+```
+
+Fluent Bit ConfigMap:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: api-gateway
+data:
+  fluent-bit.conf: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/api-gateway*.log
+        Parser            docker
+        Tag               api-gateway.*
+
+    [FILTER]
+        Name              parser
+        Match             api-gateway.*
+        Key_Name          log
+        Parser            json
+
+    [OUTPUT]
+        Name              loki
+        Match             *
+        Host              loki.monitoring.svc.cluster.local
+        Port              3100
+        Labels            app=api-gateway
+```
+
+---
+
+#### Apply all manifests
+```bash
+# Apply in order
+kubectl apply -f namespace.yaml
+kubectl apply -f secret.yaml
+kubectl apply -f configmap.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml
+kubectl apply -f hpa.yaml
+kubectl apply -f cronjob.yaml
+
+# Run migrations (one-time job)
+kubectl run migrations \
+  --image=your-registry/api-gateway:latest \
+  --restart=Never \
+  --namespace=api-gateway \
+  --env-from=configmap/api-gateway-config \
+  --env-from=secret/api-gateway-secret \
+  -- php artisan migrate --force
+
+# Check deployment status
+kubectl rollout status deployment/api-gateway -n api-gateway
+
+# View logs
+kubectl logs -f deployment/api-gateway -n api-gateway
+```
+
+---
+
+#### Key notes
+- Microservice URLs use Kubernetes internal DNS: `http://{service}.{namespace}.svc.cluster.local:{port}`
+- Secrets are base64-encoded by Kubernetes — never commit them to git
+- The `/up` health endpoint is built into Laravel 12 — no extra code needed
+- HPA requires the metrics-server to be installed in the cluster
+- TLS is handled by the Ingress + cert-manager — the app itself runs on HTTP internally
 
 ### Production checklist
 
