@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Purge expired blacklisted tokens daily
 Schedule::command('tokens:purge')->daily();
+
+// Purge expired OTPs daily
+Schedule::command('otps:purge')->daily();

@@ -112,12 +112,15 @@ class JWTService
             return null; // Token too old to refresh
         }
         
-        // 4. Generate new token with same user data
-        return $this->generateToken([
-            'email' => $payload['email'],
-            'name' => $payload['name'],
-            'role' => $payload['role'],
-        ]);
+        // 4. Generate new token preserving all user data (supports V1 email and V2 phone)
+        $newPayload = array_filter([
+            'email' => $payload['email'] ?? null,
+            'phone' => $payload['phone'] ?? null,
+            'name'  => $payload['name'],
+            'role'  => $payload['role'],
+        ], fn($v) => $v !== null);
+
+        return $this->generateToken($newPayload);
     }
 
     /**

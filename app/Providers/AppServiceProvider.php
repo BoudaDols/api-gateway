@@ -30,5 +30,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });
+
+        // 3 OTP requests per hour per IP (V2 phone auth)
+        RateLimiter::for('otp', function (Request $request) {
+            return Limit::perHour(3)->by($request->ip());
+        });
     }
 }

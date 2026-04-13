@@ -48,11 +48,12 @@ class JwtMiddleware
             ], 401);
         }
 
-        // Attach user info to request
+        // Attach user info to request (supports V1 email tokens and V2 phone tokens)
         $request->merge([
-            'user_email' => $payload['email'],
-            'user_name' => $payload['name'],
-            'user_role' => $payload['role'],
+            'user_email' => $payload['email'] ?? null,
+            'user_phone' => $payload['phone'] ?? null,
+            'user_name'  => $payload['name'],
+            'user_role'  => $payload['role'],
         ]);
 
         return $next($request);

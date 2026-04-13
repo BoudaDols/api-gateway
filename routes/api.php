@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\GatewayController;
+use App\Http\Controllers\V2\AuthController as V2AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -39,3 +40,17 @@ Route::middleware(['jwt', 'throttle:api'])
         Route::any('/services/{service}/{path}', [GatewayController::class, 'proxy'])
             ->where('path', '.*');
     });
+
+// V2 Auth routes (phone + OTP)
+Route::prefix('v2/auth')->group(function () {
+    Route::post('register',        [V2AuthController::class, 'register'])
+        ->middleware('throttle:otp')
+        ->name('v2.auth.register');
+    Route::post('register/verify', [V2AuthController::class, 'registerVerify'])
+        ->name('v2.auth.register.verify');
+    Route::post('login',           [V2AuthController::class, 'login'])
+        ->middleware('throttle:otp')
+        ->name('v2.auth.login');
+    Route::post('login/verify',    [V2AuthController::class, 'loginVerify'])
+        ->name('v2.auth.login.verify');
+});
