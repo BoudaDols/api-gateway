@@ -670,9 +670,9 @@ X-User-Role: user
 
 ---
 
-**Current Status:** 100% Complete (16/16 features) 🎉
+**Current Status:** 100% Complete (16/16 V1 features + V2) 🎉
 **V1 Production Ready:** YES
-**Next:** Prometheus metrics, then V2 Phone/OTP
+**V2 Production Ready:** YES (switch SMS_DRIVER to real provider)
 
 ---
 
@@ -753,7 +753,7 @@ api_request_duration_ms_avg{route="api/auth/login"} 45
 
 ## 🔮 Future Version: V2 - Phone/OTP Authentication
 
-**Status:** 📋 Planned (build after V1 is 100% complete)
+**Status:** ✅ Complete
 **Estimated Total Time:** ~4 hours (log driver) / ~5 hours (real SMS provider)
 **Prerequisite:** Choose SMS provider before starting
 
@@ -770,7 +770,7 @@ V2: phone + OTP     → JWT (same format, same middleware)
 ### Build Steps
 
 #### Step 1: Database Migrations (~30 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **Files to create:**
 - `database/migrations/*_add_phone_to_users_table.php`
@@ -797,7 +797,7 @@ phone  - varchar, nullable, unique
 ---
 
 #### Step 2: SMS Configuration (~15 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **Files to create:**
 - `config/sms.php` — driver selection + provider credentials
@@ -829,7 +829,7 @@ return [
 ---
 
 #### Step 3: OtpService (~1 hour)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **File to create:** `app/Services/OtpService.php`
 
@@ -848,7 +848,7 @@ return [
 ---
 
 #### Step 4: SmsService (~30 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **File to create:** `app/Services/SmsService.php`
 
@@ -869,7 +869,7 @@ return [
 ---
 
 #### Step 5: Form Requests (~15 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **Files to create:**
 - `app/Http/Requests/V2/SendOtpRequest.php`
@@ -882,7 +882,7 @@ return [
 ---
 
 #### Step 6: V2 AuthController (~1.5 hours)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **File to create:** `app/Http/Controllers/V2/AuthController.php`
 
@@ -925,7 +925,7 @@ return [
 ---
 
 #### Step 7: Routes (~15 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **File to modify:** `routes/api.php`
 
@@ -945,7 +945,7 @@ Route::prefix('v2/auth')->group(function () {
 ---
 
 #### Step 8: Update User Model (~5 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **File to modify:** `app/Models/User.php`
 - Add `phone` to `$fillable`
@@ -953,7 +953,7 @@ Route::prefix('v2/auth')->group(function () {
 ---
 
 #### Step 9: Tests (~30 min)
-**Status:** 📝 Not started
+**Status:** ✅ Complete
 
 **Files to create:**
 - `tests/Unit/OtpServiceTest.php` — generate, verify, expiry, single-use, rate limit

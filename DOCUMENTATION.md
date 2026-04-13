@@ -59,12 +59,15 @@ The gateway is the **single entry point** for all clients. Microservices never r
 api-gateway/
 ├── app/
 │   ├── Console/Commands/
-│   │   └── PurgeExpiredTokens.php     # php artisan tokens:purge
+│   │   ├── PurgeExpiredTokens.php     # php artisan tokens:purge
+│   │   └── PurgeExpiredOtps.php       # php artisan otps:purge
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── AuthController.php     # login, register, refresh, logout
+│   │   │   ├── AuthController.php     # V1 authentication
 │   │   │   ├── AdminController.php    # role management
-│   │   │   └── GatewayController.php  # service proxy
+│   │   │   ├── GatewayController.php  # service proxy
+│   │   │   └── V2/
+│   │   │       └── AuthController.php # V2 phone/OTP
 │   │   ├── Middleware/
 │   │   │   ├── JwtMiddleware.php      # token validation + blacklist check
 │   │   │   ├── AdminMiddleware.php    # role === 'admin' check
@@ -72,25 +75,35 @@ api-gateway/
 │   │   └── Requests/
 │   │       ├── LoginRequest.php
 │   │       ├── RegisterRequest.php
-│   │       └── UpdateRoleRequest.php
+│   │       ├── UpdateRoleRequest.php
+│   │       └── V2/
+│   │           ├── SendOtpRequest.php
+│   │           └── VerifyOtpRequest.php
 │   ├── Models/
 │   │   ├── User.php
-│   │   └── TokenBlacklist.php
+│   │   ├── TokenBlacklist.php
+│   │   └── PhoneOtp.php
 │   ├── Providers/
 │   │   └── AppServiceProvider.php     # rate limiter definitions
 │   └── Services/
 │       ├── JWTService.php             # token generation + validation
 │       ├── TokenBlacklistService.php  # blacklist operations
-│       └── ServiceProxyService.php    # HTTP forwarding to microservices
+│       ├── ServiceProxyService.php    # HTTP forwarding to microservices
+│       ├── OtpService.php             # OTP generation/verification
+│       └── SmsService.php             # SMS (log/twilio/vonage/sns)
 ├── config/
 │   ├── cors.php                       # CORS settings
 │   ├── gateway.php                    # service registry
 │   ├── jwt.php                        # JWT settings
-│   └── logging.php                    # stdout channel
+│   ├── logging.php                    # stdout channel
+│   └── sms.php                        # SMS driver config
 ├── database/migrations/
 │   ├── *_create_users_table.php
 │   ├── *_add_role_to_users_table.php
-│   └── *_create_token_blacklist_table.php
+│   ├── *_create_token_blacklist_table.php
+│   ├── *_add_phone_to_users_table.php
+│   ├── *_create_phone_otps_table.php
+│   └── *_make_email_password_nullable_on_users_table.php
 └── routes/
     ├── api.php                        # all API routes
     └── console.php                    # scheduled commands
@@ -362,6 +375,96 @@ Authorization: Bearer <admin_token>
 
 ---
 
+### V2 Phone/OTP Endpoints
+
+#### POST /api/v2/auth/register
+Rate limited: 3 requests/hour per IP.
+
+**Request:**
+```json
+{
+  "phone": "+1234567890",
+  "name": "John Doe"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "message": "OTP sent. Please verify your phone number."
+}
+```
+
+---
+
+#### POST /api/v2/auth/register/verify
+
+**Request:**
+```json
+{
+  "phone": "+1234567890",
+  "otp": "123456",
+  "name": "John Doe"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "token": "eyJ0eXAiOiJKV1Qi...",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "user": {
+      "phone": "+1234567890",
+      "name": "John Doe",
+      "role": "user"
+    }
+  }
+}
+```
+
+---
+
+#### POST /api/v2/auth/login
+Rate limited: 3 requests/hour per IP.
+
+**Request:**
+```json
+{
+  "phone": "+1234567890"
+}
+```
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "message": "If this number is registered, an OTP has been sent."
+}
+```
+
+---
+
+#### POST /api/v2/auth/login/verify
+
+**Request:**
+```json
+{
+  "phone": "+1234567890",
+  "otp": "123456"
+}
+```
+
+**Response `200`:** Same structure as V1 login, with `phone` instead of `email` in user data.
+
+**Note:** Token refresh and logout use the shared V1 endpoints.
+
+---
+
 ### Service Proxy
 
 #### ANY /api/services/{service}/{path}
@@ -611,6 +714,22 @@ SERVICE_ORDERS_URL=http://order-service:3000
 SERVICE_PRODUCTS_URL=http://product-service:3001
 SERVICE_USERS_URL=http://user-service:3002
 GATEWAY_TIMEOUT=10
+
+# SMS (V2 Phone/OTP)
+# Driver: log (development) | twilio | vonage | aws_sns
+SMS_DRIVER=log
+
+# Twilio (SMS_DRIVER=twilio)
+# TWILIO_SID=
+# TWILIO_TOKEN=
+# TWILIO_FROM=+1234567890
+
+# Vonage (SMS_DRIVER=vonage)
+# VONAGE_KEY=
+# VONAGE_SECRET=
+# VONAGE_FROM=APIGateway
+
+# AWS SNS uses existing AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
 ```
 
 ---
@@ -1040,7 +1159,8 @@ kubectl logs -f deployment/api-gateway -n api-gateway
 - [ ] `JWT_SECRET` set to a strong random string (min 32 chars)
 - [ ] `CORS_ALLOWED_ORIGINS` restricted to your frontend domains
 - [ ] Database credentials set
-- [ ] Laravel scheduler cron configured (`tokens:purge` runs daily)
+- [ ] Laravel scheduler cron configured (`tokens:purge` and `otps:purge` run daily)
+- [ ] `SMS_DRIVER` set to real provider if using V2 (`twilio`, `vonage`, or `aws_sns`)
 - [ ] `php artisan config:cache` run after deployment
 - [ ] `php artisan route:cache` run after deployment
 - [ ] `php artisan migrate --force` run after deployment
@@ -1059,6 +1179,9 @@ php artisan route:cache
 
 # Purge expired blacklisted tokens manually
 php artisan tokens:purge
+
+# Purge expired OTPs manually
+php artisan otps:purge
 
 # Run migrations
 php artisan migrate

@@ -9,6 +9,7 @@ This API Gateway serves as a single entry point for microservices, handling:
 - **Request Routing** - Forward authenticated requests to microservices
 - **Centralized Security** - Single point for authentication and authorization
 - **Role-Based Access** - User roles included in JWT tokens
+- **V2 Phone/OTP** - SMS-based authentication alongside email/password
 
 ## Architecture
 
@@ -37,6 +38,7 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ Rate limiting
 - ✅ Request logging
 - ✅ Service proxy
+- ✅ V2 Phone/OTP authentication
 
 ## Requirements
 
@@ -241,6 +243,80 @@ Content-Type: application/json
 
 **Note:** Only users with 'admin' role can update user roles. Valid roles are 'user' and 'admin'.
 
+### V2 Phone/OTP Authentication
+
+#### Step 1 — Send OTP (Register)
+```http
+POST /api/v2/auth/register
+Content-Type: application/json
+
+{
+  "phone": "+1234567890",
+  "name": "John Doe"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "OTP sent. Please verify your phone number."
+}
+```
+
+#### Step 2 — Verify OTP (Register)
+```http
+POST /api/v2/auth/register/verify
+Content-Type: application/json
+
+{
+  "phone": "+1234567890",
+  "otp": "123456",
+  "name": "John Doe"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "token": "eyJ0eXAiOiJKV1Qi...",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "user": {
+      "phone": "+1234567890",
+      "name": "John Doe",
+      "role": "user"
+    }
+  }
+}
+```
+
+#### Step 1 — Send OTP (Login)
+```http
+POST /api/v2/auth/login
+Content-Type: application/json
+
+{
+  "phone": "+1234567890"
+}
+```
+
+#### Step 2 — Verify OTP (Login)
+```http
+POST /api/v2/auth/login/verify
+Content-Type: application/json
+
+{
+  "phone": "+1234567890",
+  "otp": "123456"
+}
+```
+
+**Note:** Token refresh and logout use the same V1 endpoints. Phone must be in E.164 format (`+1234567890`).
+
 ### Token Management
 
 #### Logout
@@ -296,12 +372,23 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 ## JWT Token Structure
 
-### Payload
+### V1 Payload (email/password)
 ```json
 {
   "email": "admin@example.com",
   "name": "Admin User",
   "role": "admin",
+  "iat": 1234567890,
+  "exp": 1234571490
+}
+```
+
+### V2 Payload (phone/OTP)
+```json
+{
+  "phone": "+1234567890",
+  "name": "John Doe",
+  "role": "user",
   "iat": 1234567890,
   "exp": 1234571490
 }
@@ -385,28 +472,49 @@ public function profile(Request $request)
 ```
 api-gateway/
 ├── app/
+│   ├── Console/Commands/
+│   │   ├── PurgeExpiredTokens.php      # php artisan tokens:purge
+│   │   └── PurgeExpiredOtps.php        # php artisan otps:purge
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── AuthController.php      # Authentication logic
-│   │   │   └── AdminController.php     # Admin role management
+│   │   │   ├── AuthController.php      # V1 authentication
+│   │   │   ├── AdminController.php     # Admin role management
+│   │   │   ├── GatewayController.php   # Service proxy
+│   │   │   └── V2/
+│   │   │       └── AuthController.php  # V2 phone/OTP authentication
 │   │   ├── Middleware/
-│   │   │   ├── JwtMiddleware.php       # JWT validation
-│   │   │   └── AdminMiddleware.php     # Admin authorization
+│   │   │   ├── JwtMiddleware.php       # JWT validation + blacklist
+│   │   │   ├── AdminMiddleware.php     # Admin authorization
+│   │   │   └── LogRequestMiddleware.php # Stdout JSON logging
 │   │   └── Requests/
-│   │       ├── LoginRequest.php        # Login validation
-│   │       ├── RegisterRequest.php     # Register validation
-│   │       └── UpdateRoleRequest.php   # Role update validation
+│   │       ├── LoginRequest.php
+│   │       ├── RegisterRequest.php
+│   │       ├── UpdateRoleRequest.php
+│   │       └── V2/
+│   │           ├── SendOtpRequest.php
+│   │           └── VerifyOtpRequest.php
 │   ├── Models/
-│   │   └── User.php                    # User model with role
+│   │   ├── User.php
+│   │   ├── TokenBlacklist.php
+│   │   └── PhoneOtp.php
+│   ├── Providers/
+│   │   └── AppServiceProvider.php      # Rate limiter definitions
 │   └── Services/
-│       └── JWTService.php              # JWT generation/validation
+│       ├── JWTService.php              # JWT generation/validation
+│       ├── TokenBlacklistService.php   # Token blacklist
+│       ├── ServiceProxyService.php     # HTTP forwarding
+│       ├── OtpService.php              # OTP generation/verification
+│       └── SmsService.php             # SMS sending (log/twilio/vonage/sns)
 ├── config/
-│   └── jwt.php                         # JWT configuration
-├── database/
-│   └── migrations/
-│       └── *_add_role_to_users_table.php
+│   ├── cors.php
+│   ├── gateway.php                     # Service registry
+│   ├── jwt.php
+│   ├── logging.php                     # stdout channel
+│   └── sms.php                         # SMS driver config
+├── database/migrations/
 └── routes/
-    └── api.php                         # API routes
+    ├── api.php                         # All API routes
+    └── console.php                     # Scheduled commands
 ```
 
 ## Configuration
@@ -451,6 +559,11 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 - Password confirmation required for registration
 - Sensitive data (emails) in request body, not URL (prevents logging exposure)
 - Admin-only endpoints protected with dual middleware (JWT + Admin)
+- OTP expires after 10 minutes (V2)
+- OTP is single-use (V2)
+- Max 3 OTP requests per hour per phone (V2)
+- Max 5 wrong OTP attempts before lockout (V2)
+- Login response identical whether phone exists or not (V2, prevents enumeration)
 
 ## Development
 
@@ -499,6 +612,7 @@ The collection includes:
 - [x] Rate limiting
 - [x] Request logging
 - [x] Service proxy
+- [x] V2 Phone/OTP authentication
 
 ## Contributing
 
