@@ -26,6 +26,9 @@ jobs:
     name: Deploy to Local Docker
     runs-on: self-hosted
     needs: check-ci
+    env:
+      # Use a keychain-free Docker config for the runner service
+      DOCKER_CONFIG: /Users/dolsombouda/actions-runner-docker
 
     steps:
       - uses: actions/checkout@v4
