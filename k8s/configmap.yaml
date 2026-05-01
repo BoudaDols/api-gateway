@@ -17,6 +17,7 @@ data:
   JWT_REFRESH_TTL: "20160"
   CORS_ALLOWED_ORIGINS: "*"
   GATEWAY_TIMEOUT: "10"
+  SERVICE_ABONNEMENT_URL: "http://abonnement.default.svc.cluster.local/api"
   SMS_DRIVER: "log"
   LOG_CHANNEL: "stdout"
   CACHE_STORE: "database"

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migrations
+  namespace: default
+spec:
+  restartPolicy: Never
+  containers:
+    - name: migrations
+      image: dolsom/api-gateway:latest
+      imagePullPolicy: Always
+      command: ["php", "artisan", "migrate", "--force"]
+      envFrom:
+        - configMapRef:
+            name: api-gateway-config
+        - secretRef:
+            name: api-gateway-secret

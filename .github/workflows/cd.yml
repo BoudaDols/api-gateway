@@ -61,14 +61,9 @@ jobs:
 
       - name: Run migrations
         run: |
-          kubectl run migrations \
-            --image=${{ env.IMAGE }}:${{ github.sha }} \
-            --restart=Never \
-            --namespace=${{ env.NAMESPACE }} \
-            --env-from=configmap/api-gateway-config \
-            --env-from=secret/api-gateway-secret \
-            --command -- php artisan migrate --force
-          kubectl wait --for=condition=complete job/migrations -n ${{ env.NAMESPACE }} --timeout=60s || true
+          kubectl apply -f k8s/migrations.yaml
+          kubectl wait --for=condition=ready pod/migrations -n ${{ env.NAMESPACE }} --timeout=60s
+          kubectl logs migrations -n ${{ env.NAMESPACE }}
           kubectl delete pod migrations -n ${{ env.NAMESPACE }} --ignore-not-found
 
       - name: Verify deployment
