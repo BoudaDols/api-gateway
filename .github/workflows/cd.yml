@@ -35,14 +35,11 @@ jobs:
 
       - name: Deploy with docker-compose
         run: |
-          cd ${{ secrets.LOCAL_DEPLOY_PATH }}
           docker-compose pull
           docker-compose up -d --remove-orphans
 
       - name: Run migrations
-        run: |
-          docker-compose -f ${{ secrets.LOCAL_DEPLOY_PATH }}/docker-compose.yml \
-            exec -T app php artisan migrate --force
+        run: docker-compose exec -T app php artisan migrate --force
 
       - name: Verify deployment
         run: |
