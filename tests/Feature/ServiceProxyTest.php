@@ -16,14 +16,14 @@ class ServiceProxyTest extends TestCase
     {
         return app(JWTService::class)->generateToken([
             'email' => $user->email,
-            'name'  => $user->name,
-            'role'  => $user->role,
+            'name' => $user->name,
+            'role' => $user->role,
         ]);
     }
 
     public function test_proxy_returns_404_for_unknown_service(): void
     {
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $token = $this->tokenFor($user);
 
         $response = $this->getJson('/api/services/unknown-service/path', [
@@ -48,7 +48,7 @@ class ServiceProxyTest extends TestCase
             'http://order-service/*' => Http::response(['id' => 123], 200),
         ]);
 
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $token = $this->tokenFor($user);
 
         $response = $this->getJson('/api/services/orders/123', [
@@ -66,7 +66,7 @@ class ServiceProxyTest extends TestCase
             throw new \Illuminate\Http\Client\ConnectionException('refused');
         });
 
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $token = $this->tokenFor($user);
 
         $response = $this->getJson('/api/services/orders/123', [
@@ -84,7 +84,7 @@ class ServiceProxyTest extends TestCase
             'http://order-service/*' => Http::response([], 200),
         ]);
 
-        $user  = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['role' => 'admin']);
         $token = $this->tokenFor($user);
 
         $this->getJson('/api/services/orders/123', [

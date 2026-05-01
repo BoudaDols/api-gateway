@@ -24,9 +24,9 @@ return [
     */
 
     'twilio' => [
-        'sid'   => env('TWILIO_SID'),
+        'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_TOKEN'),
-        'from'  => env('TWILIO_FROM'),
+        'from' => env('TWILIO_FROM'),
     ],
 
     /*
@@ -38,9 +38,9 @@ return [
     */
 
     'vonage' => [
-        'key'    => env('VONAGE_KEY'),
+        'key' => env('VONAGE_KEY'),
         'secret' => env('VONAGE_SECRET'),
-        'from'   => env('VONAGE_FROM', 'APIGateway'),
+        'from' => env('VONAGE_FROM', 'APIGateway'),
     ],
 
     /*
@@ -52,7 +52,7 @@ return [
     */
 
     'aws_sns' => [
-        'key'    => env('AWS_ACCESS_KEY_ID'),
+        'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],

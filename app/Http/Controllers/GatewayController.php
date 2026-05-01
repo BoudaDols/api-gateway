@@ -16,7 +16,7 @@ class GatewayController extends Controller
     {
         $serviceUrl = config("gateway.services.{$service}");
 
-        if (!$serviceUrl) {
+        if (! $serviceUrl) {
             return response()->json([
                 'success' => false,
                 'message' => "Service '{$service}' not found.",

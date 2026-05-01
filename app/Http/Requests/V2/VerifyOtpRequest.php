@@ -17,8 +17,8 @@ class VerifyOtpRequest extends FormRequest
     {
         return [
             'phone' => ['required', 'string', 'regex:/^\+[1-9]\d{7,14}$/'],
-            'otp'   => ['required', 'string', 'digits:6'],
-            'name'  => ['sometimes', 'string', 'max:255'],
+            'otp' => ['required', 'string', 'digits:6'],
+            'name' => ['sometimes', 'string', 'max:255'],
         ];
     }
 
@@ -26,9 +26,9 @@ class VerifyOtpRequest extends FormRequest
     {
         return [
             'phone.required' => 'Phone number is required.',
-            'phone.regex'    => 'Phone number must be in E.164 format (e.g. +1234567890).',
-            'otp.required'   => 'OTP code is required.',
-            'otp.digits'     => 'OTP must be exactly 6 digits.',
+            'phone.regex' => 'Phone number must be in E.164 format (e.g. +1234567890).',
+            'otp.required' => 'OTP code is required.',
+            'otp.digits' => 'OTP must be exactly 6 digits.',
         ];
     }
 
@@ -37,7 +37,7 @@ class VerifyOtpRequest extends FormRequest
         throw new HttpResponseException(response()->json([
             'success' => false,
             'message' => 'Validation failed',
-            'errors'  => $validator->errors(),
+            'errors' => $validator->errors(),
         ], 422));
     }
 }

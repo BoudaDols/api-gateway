@@ -16,13 +16,13 @@ class LogRequestMiddleware
         $response = $next($request);
 
         Log::channel('stdout')->info('api_request', [
-            'timestamp'   => now()->toIso8601String(),
-            'method'      => $request->method(),
-            'url'         => $request->path(),
-            'status'      => $response->getStatusCode(),
+            'timestamp' => now()->toIso8601String(),
+            'method' => $request->method(),
+            'url' => $request->path(),
+            'status' => $response->getStatusCode(),
             'duration_ms' => round((microtime(true) - $startTime) * 1000),
-            'ip'          => $request->ip(),
-            'user'        => $request->input('user_email'),
+            'ip' => $request->ip(),
+            'user' => $request->input('user_email'),
         ]);
 
         return $response;

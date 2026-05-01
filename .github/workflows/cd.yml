@@ -1,0 +1,100 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Only deploy if CI passed
+  # ─────────────────────────────────────────────
+  check-ci:
+    name: Check CI Status
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - run: echo "CI passed — proceeding with deployment"
+
+  # ─────────────────────────────────────────────
+  # Deploy to Local Docker
+  # Uses a self-hosted GitHub Actions runner
+  # running on your local machine
+  # ─────────────────────────────────────────────
+  deploy-local:
+    name: Deploy to Local Docker
+    runs-on: self-hosted
+    needs: check-ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull latest image
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:latest
+
+      - name: Deploy with docker-compose
+        run: |
+          cd ${{ secrets.LOCAL_DEPLOY_PATH }}
+          docker-compose pull
+          docker-compose up -d --remove-orphans
+
+      - name: Run migrations
+        run: |
+          docker-compose -f ${{ secrets.LOCAL_DEPLOY_PATH }}/docker-compose.yml \
+            exec -T app php artisan migrate --force
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f http://localhost:8000/up || exit 1
+
+  # ─────────────────────────────────────────────
+  # Deploy to AWS ECS
+  # ─────────────────────────────────────────────
+  deploy-aws:
+    name: Deploy to AWS ECS
+    runs-on: ubuntu-latest
+    needs: check-ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download current ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ secrets.CONTAINER_NAME }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:latest
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Run migrations on ECS
+        run: |
+          aws ecs run-task \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNET }}],securityGroups=[${{ secrets.ECS_SECURITY_GROUP }}]}" \
+            --overrides '{"containerOverrides":[{"name":"${{ secrets.CONTAINER_NAME }}","command":["php","artisan","migrate","--force"]}]}'

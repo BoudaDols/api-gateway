@@ -16,7 +16,7 @@ class TokenBlacklistServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new TokenBlacklistService();
+        $this->service = new TokenBlacklistService;
     }
 
     public function test_blacklist_stores_token(): void
@@ -40,13 +40,13 @@ class TokenBlacklistServiceTest extends TestCase
     {
         // Expired token
         TokenBlacklist::create([
-            'token'      => 'expired.token',
+            'token' => 'expired.token',
             'expires_at' => now()->subHour(),
         ]);
 
         // Valid token
         TokenBlacklist::create([
-            'token'      => 'valid.token',
+            'token' => 'valid.token',
             'expires_at' => now()->addHour(),
         ]);
 

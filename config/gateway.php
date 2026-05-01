@@ -15,9 +15,9 @@ return [
     */
 
     'services' => collect($_ENV)
-        ->filter(fn($v, $k) => str_starts_with($k, 'SERVICE_') && str_ends_with($k, '_URL'))
-        ->mapWithKeys(fn($v, $k) => [
-            strtolower(str_replace(['SERVICE_', '_URL'], '', $k)) => $v
+        ->filter(fn ($v, $k) => str_starts_with($k, 'SERVICE_') && str_ends_with($k, '_URL'))
+        ->mapWithKeys(fn ($v, $k) => [
+            strtolower(str_replace(['SERVICE_', '_URL'], '', $k)) => $v,
         ])
         ->all(),
 

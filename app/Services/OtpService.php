@@ -3,14 +3,15 @@
 namespace App\Services;
 
 use App\Models\PhoneOtp;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 class OtpService
 {
-    private const OTP_TTL_MINUTES    = 10;
-    private const MAX_ATTEMPTS       = 5;
-    private const MAX_REQUESTS_HOUR  = 3;
+    private const OTP_TTL_MINUTES = 10;
+
+    private const MAX_ATTEMPTS = 5;
+
+    private const MAX_REQUESTS_HOUR = 3;
 
     /**
      * Generate a new OTP for the given phone and type.
@@ -24,13 +25,13 @@ class OtpService
             ->whereNull('verified_at')
             ->delete();
 
-        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         PhoneOtp::create([
-            'phone'      => $phone,
-            'code'       => $code,
-            'type'       => $type,
-            'attempts'   => 0,
+            'phone' => $phone,
+            'code' => $code,
+            'type' => $type,
+            'attempts' => 0,
             'expires_at' => now()->addMinutes(self::OTP_TTL_MINUTES),
         ]);
 
@@ -54,7 +55,7 @@ class OtpService
             ->latest()
             ->first();
 
-        if (!$otp) {
+        if (! $otp) {
             return false;
         }
 
@@ -88,6 +89,7 @@ class OtpService
     public function canRequest(string $phone): bool
     {
         $count = Cache::get("otp_requests:{$phone}", 0);
+
         return $count < self::MAX_REQUESTS_HOUR;
     }
 

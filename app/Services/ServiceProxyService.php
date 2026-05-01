@@ -11,19 +11,19 @@ class ServiceProxyService
 {
     public function forward(Request $request, string $serviceUrl, string $path): Response
     {
-        $targetUrl = rtrim($serviceUrl, '/') . '/' . ltrim($path, '/');
+        $targetUrl = rtrim($serviceUrl, '/').'/'.ltrim($path, '/');
 
         // Append query string if present
         if ($request->getQueryString()) {
-            $targetUrl .= '?' . $request->getQueryString();
+            $targetUrl .= '?'.$request->getQueryString();
         }
 
         // User context headers — microservices trust these instead of validating JWT
         $headers = [
             'X-User-Email' => $request->input('user_email'),
-            'X-User-Name'  => $request->input('user_name'),
-            'X-User-Role'  => $request->input('user_role'),
-            'Accept'       => 'application/json',
+            'X-User-Name' => $request->input('user_name'),
+            'X-User-Role' => $request->input('user_role'),
+            'Accept' => 'application/json',
         ];
 
         try {
@@ -34,7 +34,7 @@ class ServiceProxyService
                 ]);
 
             return response($response->body(), $response->status())
-                ->header('Content-Type', $response->header('Content-Type') ?? 'application/json');
+                ->header('Content-Type', $response->header('Content-Type') ?: 'application/json');
 
         } catch (ConnectionException) {
             return response()->json([

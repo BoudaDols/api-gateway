@@ -12,7 +12,7 @@ class JWTServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->jwt = new JWTService();
+        $this->jwt = new JWTService;
     }
 
     public function test_generates_token_with_three_parts(): void

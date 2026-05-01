@@ -50,8 +50,8 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
-                ]
-            ]
+                ],
+            ],
         ], 201);
     }
 
@@ -64,10 +64,10 @@ class AuthController extends Controller
         $user = User::where('email', $request->validated()['email'])->first();
 
         // Check if user exists and password is correct
-        if (!$user || !Hash::check($request->validated()['password'], $user->password)) {
+        if (! $user || ! Hash::check($request->validated()['password'], $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid credentials'
+                'message' => 'Invalid credentials',
             ], 401);
         }
 
@@ -90,8 +90,8 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
-                ]
-            ]
+                ],
+            ],
         ]);
     }
 
@@ -107,7 +107,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Logged out successfully'
+            'message' => 'Logged out successfully',
         ]);
     }
 
@@ -118,24 +118,24 @@ class AuthController extends Controller
     {
         // 1. Get token from Authorization header
         $oldToken = $request->bearerToken();
-        
-        if (!$oldToken) {
+
+        if (! $oldToken) {
             return response()->json([
                 'success' => false,
-                'message' => 'Token not provided'
+                'message' => 'Token not provided',
             ], 401);
         }
-        
+
         // 2. Try to refresh the token
         $newToken = $this->jwtService->refreshToken($oldToken);
-        
-        if (!$newToken) {
+
+        if (! $newToken) {
             return response()->json([
                 'success' => false,
-                'message' => 'Token cannot be refreshed. Please login again.'
+                'message' => 'Token cannot be refreshed. Please login again.',
             ], 401);
         }
-        
+
         // 3. Return new token
         return response()->json([
             'success' => true,
@@ -144,7 +144,7 @@ class AuthController extends Controller
                 'token' => $newToken,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
-            ]
+            ],
         ]);
     }
 }

@@ -26,7 +26,7 @@ class RegisterTest extends TestCase
     {
         $response = $this->postJson('/api/v2/auth/register', [
             'phone' => $this->phone,
-            'name'  => 'John Doe',
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(200)
@@ -41,7 +41,7 @@ class RegisterTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/register', [
             'phone' => $this->phone,
-            'name'  => 'John Doe',
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(422)
@@ -52,7 +52,7 @@ class RegisterTest extends TestCase
     {
         $response = $this->postJson('/api/v2/auth/register', [
             'phone' => '1234567890', // missing +
-            'name'  => 'John Doe',
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(422);
@@ -72,13 +72,13 @@ class RegisterTest extends TestCase
         for ($i = 0; $i < 3; $i++) {
             $this->postJson('/api/v2/auth/register', [
                 'phone' => $this->phone,
-                'name'  => 'John Doe',
+                'name' => 'John Doe',
             ]);
         }
 
         $response = $this->postJson('/api/v2/auth/register', [
             'phone' => $this->phone,
-            'name'  => 'John Doe',
+            'name' => 'John Doe',
         ]);
 
         // Either OtpService rate limit (429) or throttle middleware (429)
@@ -93,8 +93,8 @@ class RegisterTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
-            'name'  => 'John Doe',
+            'otp' => $code,
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(201)
@@ -113,8 +113,8 @@ class RegisterTest extends TestCase
 
         $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
-            'name'  => 'John Doe',
+            'otp' => $code,
+            'name' => 'John Doe',
         ]);
 
         $this->assertDatabaseHas('users', ['phone' => $this->phone, 'role' => 'user']);
@@ -126,8 +126,8 @@ class RegisterTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => '000000',
-            'name'  => 'John Doe',
+            'otp' => '000000',
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(401)
@@ -141,8 +141,8 @@ class RegisterTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
-            'name'  => 'John Doe',
+            'otp' => $code,
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(401);
@@ -154,15 +154,15 @@ class RegisterTest extends TestCase
 
         $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
-            'name'  => 'John Doe',
+            'otp' => $code,
+            'name' => 'John Doe',
         ]);
 
         // Second use of same OTP
         $response = $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
-            'name'  => 'John Doe',
+            'otp' => $code,
+            'name' => 'John Doe',
         ]);
 
         $response->assertStatus(401);
@@ -174,8 +174,8 @@ class RegisterTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/register/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
-            'name'  => 'John Doe',
+            'otp' => $code,
+            'name' => 'John Doe',
         ]);
 
         $token = $response->json('data.token');

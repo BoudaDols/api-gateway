@@ -7,7 +7,9 @@ use Exception;
 class JWTService
 {
     private string $secret;
+
     private int $ttl;
+
     private string $algo;
 
     public function __construct()
@@ -25,7 +27,7 @@ class JWTService
         // Create header
         $header = $this->base64UrlEncode(json_encode([
             'typ' => 'JWT',
-            'alg' => $this->algo
+            'alg' => $this->algo,
         ]));
 
         // Add timestamps to payload
@@ -49,7 +51,7 @@ class JWTService
     {
         try {
             $parts = explode('.', $token);
-            
+
             if (count($parts) !== 3) {
                 return null;
             }
@@ -69,7 +71,7 @@ class JWTService
             $payload = json_decode($this->base64UrlDecode($payload), true);
 
             // Check expiration
-            if (!isset($payload['exp']) || $payload['exp'] < time()) {
+            if (! isset($payload['exp']) || $payload['exp'] < time()) {
                 return null;
             }
 
@@ -96,29 +98,29 @@ class JWTService
     {
         // 1. Decode the old token (ignore expiration)
         $payload = $this->decodeToken($oldToken);
-        
-        if (!$payload) {
+
+        if (! $payload) {
             return null; // Invalid token format
         }
-        
+
         // 2. Verify signature is still valid
-        if (!$this->verifySignature($oldToken)) {
+        if (! $this->verifySignature($oldToken)) {
             return null; // Tampered token
         }
-        
+
         // 3. Check if token expired too long ago (refresh window)
         $refreshTtl = config('jwt.refresh_ttl') * 60; // Convert to seconds
         if (time() - $payload['exp'] > $refreshTtl) {
             return null; // Token too old to refresh
         }
-        
+
         // 4. Generate new token preserving all user data (supports V1 email and V2 phone)
         $newPayload = array_filter([
             'email' => $payload['email'] ?? null,
             'phone' => $payload['phone'] ?? null,
-            'name'  => $payload['name'],
-            'role'  => $payload['role'],
-        ], fn($v) => $v !== null);
+            'name' => $payload['name'],
+            'role' => $payload['role'],
+        ], fn ($v) => $v !== null);
 
         return $this->generateToken($newPayload);
     }
@@ -130,21 +132,21 @@ class JWTService
     {
         try {
             $parts = explode('.', $token);
-            
+
             if (count($parts) !== 3) {
                 return null;
             }
-            
+
             [$header, $payload, $signature] = $parts;
-            
+
             // Decode payload (don't check expiration)
             $decodedPayload = json_decode(
-                $this->base64UrlDecode($payload), 
+                $this->base64UrlDecode($payload),
                 true
             );
-            
+
             return $decodedPayload;
-            
+
         } catch (Exception $e) {
             return null;
         }
@@ -157,21 +159,21 @@ class JWTService
     {
         try {
             $parts = explode('.', $token);
-            
+
             if (count($parts) !== 3) {
                 return false;
             }
-            
+
             [$header, $payload, $signature] = $parts;
-            
+
             // Recalculate signature
             $validSignature = $this->base64UrlEncode(
                 hash_hmac('sha256', "$header.$payload", $this->secret, true)
             );
-            
+
             // Compare signatures (timing-safe comparison)
             return hash_equals($signature, $validSignature);
-            
+
         } catch (Exception $e) {
             return false;
         }

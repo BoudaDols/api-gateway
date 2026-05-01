@@ -17,7 +17,7 @@ class RequestLoggingTest extends TestCase
         Log::spy();
 
         $this->postJson('/api/auth/login', [
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => 'password123',
         ]);
 
@@ -31,7 +31,7 @@ class RequestLoggingTest extends TestCase
         Log::spy();
 
         $this->postJson('/api/auth/login', [
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => 'password123',
         ]);
 
@@ -42,11 +42,11 @@ class RequestLoggingTest extends TestCase
     {
         Log::spy();
 
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $token = app(JWTService::class)->generateToken([
             'email' => $user->email,
-            'name'  => $user->name,
-            'role'  => $user->role,
+            'name' => $user->name,
+            'role' => $user->role,
         ]);
 
         $this->getJson('/api/profile', ['Authorization' => "Bearer $token"]);

@@ -15,7 +15,7 @@ class ServiceProxyServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ServiceProxyService();
+        $this->service = new ServiceProxyService;
     }
 
     public function test_forwards_request_and_returns_microservice_response(): void

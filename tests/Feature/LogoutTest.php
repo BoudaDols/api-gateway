@@ -14,10 +14,11 @@ class LogoutTest extends TestCase
     private function getToken(string $role = 'user'): string
     {
         $user = User::factory()->create(['role' => $role]);
+
         return app(JWTService::class)->generateToken([
             'email' => $user->email,
-            'name'  => $user->name,
-            'role'  => $user->role,
+            'name' => $user->name,
+            'role' => $user->role,
         ]);
     }
 

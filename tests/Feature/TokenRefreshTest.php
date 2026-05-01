@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Services\JWTService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,8 +22,8 @@ class TokenRefreshTest extends TestCase
     {
         return $this->jwt->generateToken(array_merge([
             'email' => 'test@example.com',
-            'name'  => 'Test User',
-            'role'  => 'user',
+            'name' => 'Test User',
+            'role' => 'user',
         ], $overrides));
     }
 
@@ -68,7 +67,7 @@ class TokenRefreshTest extends TestCase
         $parts[2] = 'badsignature';
 
         $response = $this->postJson('/api/auth/refresh', [], [
-            'Authorization' => 'Bearer ' . implode('.', $parts),
+            'Authorization' => 'Bearer '.implode('.', $parts),
         ]);
 
         $response->assertStatus(401)
@@ -86,7 +85,7 @@ class TokenRefreshTest extends TestCase
         $parts[2] = rtrim(strtr(base64_encode(hash_hmac('sha256', "$parts[0].$parts[1]", $secret, true)), '+/', '-_'), '=');
 
         $response = $this->postJson('/api/auth/refresh', [], [
-            'Authorization' => 'Bearer ' . implode('.', $parts),
+            'Authorization' => 'Bearer '.implode('.', $parts),
         ]);
 
         $response->assertStatus(401)

@@ -14,11 +14,11 @@ class SmsService
     public function send(string $phone, string $message): void
     {
         match (config('sms.driver')) {
-            'log'     => $this->sendViaLog($phone, $message),
-            'twilio'  => $this->sendViaTwilio($phone, $message),
-            'vonage'  => $this->sendViaVonage($phone, $message),
+            'log' => $this->sendViaLog($phone, $message),
+            'twilio' => $this->sendViaTwilio($phone, $message),
+            'vonage' => $this->sendViaVonage($phone, $message),
             'aws_sns' => $this->sendViaAwsSns($phone, $message),
-            default   => throw new RuntimeException('Unsupported SMS driver: ' . config('sms.driver')),
+            default => throw new RuntimeException('Unsupported SMS driver: '.config('sms.driver')),
         };
     }
 
@@ -28,7 +28,7 @@ class SmsService
      */
     private function sendViaLog(string $phone, string $message): void
     {
-        Log::info('[SMS] To: ' . $phone . ' | Message: ' . $message);
+        Log::info('[SMS] To: '.$phone.' | Message: '.$message);
     }
 
     /**
@@ -38,11 +38,11 @@ class SmsService
      */
     private function sendViaTwilio(string $phone, string $message): void
     {
-        $sid   = config('sms.twilio.sid');
+        $sid = config('sms.twilio.sid');
         $token = config('sms.twilio.token');
-        $from  = config('sms.twilio.from');
+        $from = config('sms.twilio.from');
 
-        if (!$sid || !$token || !$from) {
+        if (! $sid || ! $token || ! $from) {
             throw new RuntimeException('Twilio credentials not configured. Set TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM in .env');
         }
 
@@ -59,11 +59,11 @@ class SmsService
      */
     private function sendViaVonage(string $phone, string $message): void
     {
-        $key    = config('sms.vonage.key');
+        $key = config('sms.vonage.key');
         $secret = config('sms.vonage.secret');
-        $from   = config('sms.vonage.from');
+        $from = config('sms.vonage.from');
 
-        if (!$key || !$secret) {
+        if (! $key || ! $secret) {
             throw new RuntimeException('Vonage credentials not configured. Set VONAGE_KEY, VONAGE_SECRET in .env');
         }
 
@@ -81,11 +81,11 @@ class SmsService
      */
     private function sendViaAwsSns(string $phone, string $message): void
     {
-        $key    = config('sms.aws_sns.key');
+        $key = config('sms.aws_sns.key');
         $secret = config('sms.aws_sns.secret');
         $region = config('sms.aws_sns.region');
 
-        if (!$key || !$secret) {
+        if (! $key || ! $secret) {
             throw new RuntimeException('AWS credentials not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in .env');
         }
 

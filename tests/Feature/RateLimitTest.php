@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
@@ -23,14 +22,14 @@ class RateLimitTest extends TestCase
         // 5 allowed attempts
         for ($i = 0; $i < 5; $i++) {
             $this->postJson('/api/auth/login', [
-                'email'    => 'test@example.com',
+                'email' => 'test@example.com',
                 'password' => 'wrongpassword',
             ]);
         }
 
         // 6th attempt should be rate limited
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => 'wrongpassword',
         ]);
 
@@ -42,17 +41,17 @@ class RateLimitTest extends TestCase
     {
         for ($i = 0; $i < 10; $i++) {
             $this->postJson('/api/auth/register', [
-                'name'                  => "User $i",
-                'email'                 => "user{$i}@example.com",
-                'password'              => 'password123',
+                'name' => "User $i",
+                'email' => "user{$i}@example.com",
+                'password' => 'password123',
                 'password_confirmation' => 'password123',
             ]);
         }
 
         $response = $this->postJson('/api/auth/register', [
-            'name'                  => 'User 11',
-            'email'                 => 'user11@example.com',
-            'password'              => 'password123',
+            'name' => 'User 11',
+            'email' => 'user11@example.com',
+            'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
 
@@ -64,7 +63,7 @@ class RateLimitTest extends TestCase
     {
         for ($i = 0; $i < 6; $i++) {
             $response = $this->postJson('/api/auth/login', [
-                'email'    => 'test@example.com',
+                'email' => 'test@example.com',
                 'password' => 'wrong',
             ]);
         }

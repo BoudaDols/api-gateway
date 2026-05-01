@@ -31,8 +31,8 @@ class SendOtpRequest extends FormRequest
     {
         return [
             'phone.required' => 'Phone number is required.',
-            'phone.regex'    => 'Phone number must be in E.164 format (e.g. +1234567890).',
-            'name.required'  => 'Name is required for registration.',
+            'phone.regex' => 'Phone number must be in E.164 format (e.g. +1234567890).',
+            'name.required' => 'Name is required for registration.',
         ];
     }
 
@@ -41,7 +41,7 @@ class SendOtpRequest extends FormRequest
         throw new HttpResponseException(response()->json([
             'success' => false,
             'message' => 'Validation failed',
-            'errors'  => $validator->errors(),
+            'errors' => $validator->errors(),
         ], 422));
     }
 }

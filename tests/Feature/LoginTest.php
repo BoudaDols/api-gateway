@@ -13,13 +13,13 @@ class LoginTest extends TestCase
     public function test_user_can_login_with_valid_credentials(): void
     {
         User::factory()->create([
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => bcrypt('password123'),
-            'role'     => 'user',
+            'role' => 'user',
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => 'password123',
         ]);
 
@@ -35,23 +35,23 @@ class LoginTest extends TestCase
     public function test_login_returns_user_data(): void
     {
         User::factory()->create([
-            'name'     => 'John Doe',
-            'email'    => 'john@example.com',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
             'password' => bcrypt('password123'),
-            'role'     => 'admin',
+            'role' => 'admin',
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'john@example.com',
+            'email' => 'john@example.com',
             'password' => 'password123',
         ]);
 
         $response->assertJson([
             'data' => [
                 'user' => [
-                    'name'  => 'John Doe',
+                    'name' => 'John Doe',
                     'email' => 'john@example.com',
-                    'role'  => 'admin',
+                    'role' => 'admin',
                 ],
             ],
         ]);
@@ -60,12 +60,12 @@ class LoginTest extends TestCase
     public function test_login_fails_with_wrong_password(): void
     {
         User::factory()->create([
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => bcrypt('password123'),
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'test@example.com',
+            'email' => 'test@example.com',
             'password' => 'wrongpassword',
         ]);
 
@@ -76,7 +76,7 @@ class LoginTest extends TestCase
     public function test_login_fails_with_unknown_email(): void
     {
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'nobody@example.com',
+            'email' => 'nobody@example.com',
             'password' => 'password123',
         ]);
 
@@ -93,7 +93,7 @@ class LoginTest extends TestCase
     public function test_login_fails_with_invalid_email_format(): void
     {
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'not-an-email',
+            'email' => 'not-an-email',
             'password' => 'password123',
         ]);
 
@@ -104,17 +104,17 @@ class LoginTest extends TestCase
     {
         // Both unknown email and wrong password return the same message
         $unknownEmail = $this->postJson('/api/auth/login', [
-            'email'    => 'nobody@example.com',
+            'email' => 'nobody@example.com',
             'password' => 'password123',
         ]);
 
         User::factory()->create([
-            'email'    => 'known@example.com',
+            'email' => 'known@example.com',
             'password' => bcrypt('password123'),
         ]);
 
         $wrongPassword = $this->postJson('/api/auth/login', [
-            'email'    => 'known@example.com',
+            'email' => 'known@example.com',
             'password' => 'wrongpassword',
         ]);
 

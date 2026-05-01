@@ -14,7 +14,7 @@ class SmsServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new SmsService();
+        $this->service = new SmsService;
     }
 
     public function test_log_driver_writes_to_log(): void
@@ -24,7 +24,7 @@ class SmsServiceTest extends TestCase
         // Use shouldReceive instead of spy to avoid breaking Log::channel
         Log::shouldReceive('info')
             ->once()
-            ->withArgs(fn($msg) => str_contains($msg, '[SMS]'));
+            ->withArgs(fn ($msg) => str_contains($msg, '[SMS]'));
 
         $this->service->send('+1234567890', 'Your code is: 123456');
     }
@@ -35,7 +35,7 @@ class SmsServiceTest extends TestCase
 
         Log::shouldReceive('info')
             ->once()
-            ->withArgs(fn($msg) => str_contains($msg, '+1234567890'));
+            ->withArgs(fn ($msg) => str_contains($msg, '+1234567890'));
 
         $this->service->send('+1234567890', 'Your code is: 123456');
     }

@@ -33,7 +33,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        if (!$this->otpService->canRequest($phone)) {
+        if (! $this->otpService->canRequest($phone)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Too many OTP requests. Please wait before requesting a new code.',
@@ -55,10 +55,10 @@ class AuthController extends Controller
     public function registerVerify(VerifyOtpRequest $request): JsonResponse
     {
         $phone = $request->validated()['phone'];
-        $otp   = $request->validated()['otp'];
-        $name  = $request->input('name', '');
+        $otp = $request->validated()['otp'];
+        $name = $request->input('name', '');
 
-        if (!$this->otpService->verify($phone, $otp, 'register')) {
+        if (! $this->otpService->verify($phone, $otp, 'register')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired OTP.',
@@ -67,27 +67,27 @@ class AuthController extends Controller
 
         $user = User::create([
             'phone' => $phone,
-            'name'  => $name,
-            'role'  => 'user',
+            'name' => $name,
+            'role' => 'user',
         ]);
 
         $token = $this->jwtService->generateToken([
             'phone' => $user->phone,
-            'name'  => $user->name,
-            'role'  => $user->role,
+            'name' => $user->name,
+            'role' => $user->role,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Registration successful',
-            'data'    => [
-                'token'      => $token,
+            'data' => [
+                'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
-                'user'       => [
+                'user' => [
                     'phone' => $user->phone,
-                    'name'  => $user->name,
-                    'role'  => $user->role,
+                    'name' => $user->name,
+                    'role' => $user->role,
                 ],
             ],
         ], 201);
@@ -100,7 +100,7 @@ class AuthController extends Controller
     {
         $phone = $request->validated()['phone'];
 
-        if (!$this->otpService->canRequest($phone)) {
+        if (! $this->otpService->canRequest($phone)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Too many OTP requests. Please wait before requesting a new code.',
@@ -127,9 +127,9 @@ class AuthController extends Controller
     public function loginVerify(VerifyOtpRequest $request): JsonResponse
     {
         $phone = $request->validated()['phone'];
-        $otp   = $request->validated()['otp'];
+        $otp = $request->validated()['otp'];
 
-        if (!$this->otpService->verify($phone, $otp, 'login')) {
+        if (! $this->otpService->verify($phone, $otp, 'login')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired OTP.',
@@ -138,7 +138,7 @@ class AuthController extends Controller
 
         $user = User::where('phone', $phone)->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired OTP.',
@@ -147,21 +147,21 @@ class AuthController extends Controller
 
         $token = $this->jwtService->generateToken([
             'phone' => $user->phone,
-            'name'  => $user->name,
-            'role'  => $user->role,
+            'name' => $user->name,
+            'role' => $user->role,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
-            'data'    => [
-                'token'      => $token,
+            'data' => [
+                'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
-                'user'       => [
+                'user' => [
                     'phone' => $user->phone,
-                    'name'  => $user->name,
-                    'role'  => $user->role,
+                    'name' => $user->name,
+                    'role' => $user->role,
                 ],
             ],
         ]);

@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GatewayController;
 use App\Http\Controllers\V2\AuthController as V2AuthController;
 use Illuminate\Http\Request;
@@ -23,7 +23,7 @@ Route::middleware(['jwt', 'throttle:api'])->group(function () {
                 'email' => $request->input('user_email'),
                 'name' => $request->input('user_name'),
                 'role' => $request->input('user_role'),
-            ]
+            ],
         ]);
     });
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -43,14 +43,14 @@ Route::middleware(['jwt', 'throttle:api'])
 
 // V2 Auth routes (phone + OTP)
 Route::prefix('v2/auth')->group(function () {
-    Route::post('register',        [V2AuthController::class, 'register'])
+    Route::post('register', [V2AuthController::class, 'register'])
         ->middleware('throttle:otp')
         ->name('v2.auth.register');
     Route::post('register/verify', [V2AuthController::class, 'registerVerify'])
         ->name('v2.auth.register.verify');
-    Route::post('login',           [V2AuthController::class, 'login'])
+    Route::post('login', [V2AuthController::class, 'login'])
         ->middleware('throttle:otp')
         ->name('v2.auth.login');
-    Route::post('login/verify',    [V2AuthController::class, 'loginVerify'])
+    Route::post('login/verify', [V2AuthController::class, 'loginVerify'])
         ->name('v2.auth.login.verify');
 });

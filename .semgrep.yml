@@ -1,0 +1,9 @@
+rules: []
+# Semgrep uses the following rulesets via CI flags:
+# - p/php           — general PHP security rules
+# - p/laravel       — Laravel-specific security rules
+# - p/owasp-top-ten — OWASP Top 10 vulnerabilities
+# - p/secrets       — hardcoded secrets detection
+#
+# These are passed directly in the GitHub Actions workflow.
+# Add custom rules below if needed.

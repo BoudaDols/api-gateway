@@ -23,8 +23,8 @@ class AdminController extends Controller
             'data' => [
                 'email' => $user->email,
                 'name' => $user->name,
-                'role' => $user->role
-            ]
+                'role' => $user->role,
+            ],
         ]);
     }
 }

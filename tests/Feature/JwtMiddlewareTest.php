@@ -15,14 +15,14 @@ class JwtMiddlewareTest extends TestCase
     {
         return app(JWTService::class)->generateToken([
             'email' => $user->email,
-            'name'  => $user->name,
-            'role'  => $user->role,
+            'name' => $user->name,
+            'role' => $user->role,
         ]);
     }
 
     public function test_profile_returns_user_data_with_valid_token(): void
     {
-        $user  = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['role' => 'admin']);
         $token = $this->tokenFor($user);
 
         $response = $this->getJson('/api/profile', ['Authorization' => "Bearer $token"]);
@@ -30,10 +30,10 @@ class JwtMiddlewareTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'data'    => [
+                'data' => [
                     'email' => $user->email,
-                    'name'  => $user->name,
-                    'role'  => 'admin',
+                    'name' => $user->name,
+                    'role' => 'admin',
                 ],
             ]);
     }
@@ -58,13 +58,13 @@ class JwtMiddlewareTest extends TestCase
 
     public function test_profile_returns_401_with_tampered_token(): void
     {
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $token = $this->tokenFor($user);
         $parts = explode('.', $token);
         $parts[2] = 'tampered';
 
         $response = $this->getJson('/api/profile', [
-            'Authorization' => 'Bearer ' . implode('.', $parts),
+            'Authorization' => 'Bearer '.implode('.', $parts),
         ]);
 
         $response->assertStatus(401);
@@ -72,7 +72,7 @@ class JwtMiddlewareTest extends TestCase
 
     public function test_profile_returns_401_with_blacklisted_token(): void
     {
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $token = $this->tokenFor($user);
 
         // Blacklist the token

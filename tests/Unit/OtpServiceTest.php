@@ -17,7 +17,7 @@ class OtpServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new OtpService();
+        $this->service = new OtpService;
     }
 
     public function test_generate_creates_otp_in_database(): void
@@ -118,16 +118,16 @@ class OtpServiceTest extends TestCase
     public function test_purge_expired_removes_expired_otps(): void
     {
         PhoneOtp::create([
-            'phone'      => '+1234567890',
-            'code'       => '123456',
-            'type'       => 'register',
+            'phone' => '+1234567890',
+            'code' => '123456',
+            'type' => 'register',
             'expires_at' => now()->subMinute(),
         ]);
 
         PhoneOtp::create([
-            'phone'      => '+9876543210',
-            'code'       => '654321',
-            'type'       => 'login',
+            'phone' => '+9876543210',
+            'code' => '654321',
+            'type' => 'login',
             'expires_at' => now()->addMinutes(10),
         ]);
 

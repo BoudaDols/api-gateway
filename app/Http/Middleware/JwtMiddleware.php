@@ -23,20 +23,20 @@ class JwtMiddleware
         // Get token from Authorization header
         $token = $request->bearerToken();
 
-        if (!$token) {
+        if (! $token) {
             return response()->json([
                 'success' => false,
-                'message' => 'Token not provided'
+                'message' => 'Token not provided',
             ], 401);
         }
 
         // Validate token
         $payload = $this->jwtService->validateToken($token);
 
-        if (!$payload) {
+        if (! $payload) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid or expired token'
+                'message' => 'Invalid or expired token',
             ], 401);
         }
 
@@ -44,7 +44,7 @@ class JwtMiddleware
         if ($this->blacklistService->isBlacklisted($token)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Token has been revoked. Please login again.'
+                'message' => 'Token has been revoked. Please login again.',
             ], 401);
         }
 
@@ -52,8 +52,8 @@ class JwtMiddleware
         $request->merge([
             'user_email' => $payload['email'] ?? null,
             'user_phone' => $payload['phone'] ?? null,
-            'user_name'  => $payload['name'],
-            'user_role'  => $payload['role'],
+            'user_name' => $payload['name'],
+            'user_role' => $payload['role'],
         ]);
 
         return $next($request);

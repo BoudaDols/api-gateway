@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<ruleset name="API Gateway">
+    <description>PHP CodeSniffer rules for API Gateway</description>
+
+    <!-- Scan these paths -->
+    <file>app</file>
+    <file>tests</file>
+
+    <!-- Exclude vendor and generated files -->
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>bootstrap/cache/*</exclude-pattern>
+    <exclude-pattern>storage/*</exclude-pattern>
+
+    <!-- Use PSR-12 standard -->
+    <rule ref="PSR12">
+        <!-- Allow snake_case method names in tests (PHPUnit convention) -->
+        <exclude name="PSR1.Methods.CamelCapsMethodName"/>
+    </rule>
+
+    <!-- Show progress -->
+    <arg value="p"/>
+    <arg name="colors"/>
+</ruleset>

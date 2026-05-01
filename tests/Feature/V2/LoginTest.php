@@ -24,7 +24,7 @@ class LoginTest extends TestCase
     {
         return User::factory()->create([
             'phone' => $this->phone,
-            'role'  => 'user',
+            'role' => 'user',
         ]);
     }
 
@@ -80,7 +80,7 @@ class LoginTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $response->assertStatus(200)
@@ -98,7 +98,7 @@ class LoginTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => '000000',
+            'otp' => '000000',
         ]);
 
         $response->assertStatus(401)
@@ -113,7 +113,7 @@ class LoginTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $response->assertStatus(401);
@@ -126,12 +126,12 @@ class LoginTest extends TestCase
 
         $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $response->assertStatus(401);
@@ -143,7 +143,7 @@ class LoginTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $response->assertStatus(401)
@@ -157,13 +157,13 @@ class LoginTest extends TestCase
 
         $wrongOtp = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => '000000',
+            'otp' => '000000',
         ]);
 
         $code = app(OtpService::class)->generate('+9999999999', 'login');
         $unknownPhone = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => '+9999999999',
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $this->assertEquals($wrongOtp->json('message'), $unknownPhone->json('message'));
@@ -176,7 +176,7 @@ class LoginTest extends TestCase
 
         $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ]);
 
         $token = $response->json('data.token');
@@ -192,7 +192,7 @@ class LoginTest extends TestCase
 
         $token = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ])->json('data.token');
 
         $this->postJson('/api/auth/refresh', [], ['Authorization' => "Bearer $token"])
@@ -207,7 +207,7 @@ class LoginTest extends TestCase
 
         $token = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
-            'otp'   => $code,
+            'otp' => $code,
         ])->json('data.token');
 
         $this->postJson('/api/auth/logout', [], ['Authorization' => "Bearer $token"])

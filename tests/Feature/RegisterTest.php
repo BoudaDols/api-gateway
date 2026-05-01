@@ -11,9 +11,9 @@ class RegisterTest extends TestCase
     use RefreshDatabase;
 
     private array $validPayload = [
-        'name'                  => 'John Doe',
-        'email'                 => 'john@example.com',
-        'password'              => 'password123',
+        'name' => 'John Doe',
+        'email' => 'john@example.com',
+        'password' => 'password123',
         'password_confirmation' => 'password123',
     ];
 
@@ -46,7 +46,7 @@ class RegisterTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
-            'role'  => 'user',
+            'role' => 'user',
         ]);
     }
 
@@ -69,8 +69,8 @@ class RegisterTest extends TestCase
     public function test_register_fails_without_password_confirmation(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'name'     => 'John Doe',
-            'email'    => 'john@example.com',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
             'password' => 'password123',
         ]);
 
@@ -80,9 +80,9 @@ class RegisterTest extends TestCase
     public function test_register_fails_with_mismatched_passwords(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'name'                  => 'John Doe',
-            'email'                 => 'john@example.com',
-            'password'              => 'password123',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password123',
             'password_confirmation' => 'different',
         ]);
 
@@ -101,7 +101,7 @@ class RegisterTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
-            'role'  => 'user',
+            'role' => 'user',
         ]);
     }
 }
