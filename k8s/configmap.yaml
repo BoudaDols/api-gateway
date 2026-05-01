@@ -2,14 +2,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-gateway-config
-  namespace: api-gateway
+  namespace: default
 data:
   APP_NAME: "API Gateway"
   APP_ENV: "production"
   APP_DEBUG: "false"
   APP_URL: "http://localhost"
   DB_CONNECTION: "mysql"
-  DB_HOST: "mysql-service"
+  DB_HOST: "api-gateway-mysql-service"
   DB_PORT: "3306"
   DB_DATABASE: "api_gateway"
   DB_USERNAME: "root"

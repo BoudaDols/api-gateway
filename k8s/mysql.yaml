@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mysql
-  namespace: api-gateway
+  name: api-gateway-mysql
+  namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mysql
+      app: api-gateway-mysql
   template:
     metadata:
       labels:
-        app: mysql
+        app: api-gateway-mysql
     spec:
       containers:
-        - name: mysql
+        - name: api-gateway-mysql
           image: mysql:8.0
           ports:
             - containerPort: 3306
@@ -32,16 +32,16 @@ spec:
       volumes:
         - name: mysql-data
           persistentVolumeClaim:
-            claimName: mysql-pvc
+            claimName: api-gateway-mysql-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mysql-service
-  namespace: api-gateway
+  name: api-gateway-mysql-service
+  namespace: default
 spec:
   selector:
-    app: mysql
+    app: api-gateway-mysql
   ports:
     - port: 3306
       targetPort: 3306
@@ -50,8 +50,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mysql-pvc
-  namespace: api-gateway
+  name: api-gateway-mysql-pvc
+  namespace: default
 spec:
   accessModes:
     - ReadWriteOnce

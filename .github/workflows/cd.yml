@@ -28,7 +28,7 @@ jobs:
     env:
       DOCKER_CONFIG: /Users/dolsombouda/actions-runner-docker
       KUBECONFIG: /Users/dolsombouda/.kube/config
-      NAMESPACE: api-gateway
+      NAMESPACE: default
       IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway
 
     steps:
@@ -39,7 +39,6 @@ jobs:
 
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/mysql.yaml
 

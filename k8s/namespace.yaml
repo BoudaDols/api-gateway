@@ -1,4 +1,6 @@
+# The default namespace already exists in Kubernetes.
+# This file is kept for reference only — no need to apply it.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: api-gateway
+  name: default
