@@ -8,7 +8,6 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
-      - vendor:/var/www/html/vendor
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
     networks:
       - api-gateway-network
@@ -45,6 +44,4 @@ networks:
 
 volumes:
   dbdata:
-    driver: local
-  vendor:
     driver: local

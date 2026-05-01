@@ -18,38 +18,64 @@ jobs:
       - run: echo "CI passed — proceeding with deployment"
 
   # ─────────────────────────────────────────────
-  # Deploy to Local Docker
-  # Uses a self-hosted GitHub Actions runner
-  # running on your local machine
+  # Deploy to Local Kubernetes (docker-desktop)
+  # Uses self-hosted runner on your machine
   # ─────────────────────────────────────────────
   deploy-local:
-    name: Deploy to Local Docker
+    name: Deploy to Local Kubernetes
     runs-on: self-hosted
     needs: check-ci
     env:
-      # Use a keychain-free Docker config for the runner service
       DOCKER_CONFIG: /Users/dolsombouda/actions-runner-docker
+      KUBECONFIG: /Users/dolsombouda/.kube/config
+      NAMESPACE: api-gateway
+      IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Pull latest image
-        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:latest
+        run: docker pull ${{ env.IMAGE }}:latest
 
-      - name: Deploy with docker-compose
+      - name: Apply Kubernetes manifests
         run: |
-          docker-compose pull
-          docker-compose up -d --remove-orphans
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/mysql.yaml
+
+      - name: Update secret values
+        run: |
+          kubectl create secret generic api-gateway-secret \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=APP_KEY="${{ secrets.APP_KEY }}" \
+            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Update image in deployment
+        run: |
+          sed -i '' "s|image: .*/api-gateway:.*|image: ${{ env.IMAGE }}:${{ github.sha }}|g" k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/api-gateway -n ${{ env.NAMESPACE }} --timeout=120s
 
       - name: Run migrations
         run: |
-          docker-compose exec -T app composer install --no-interaction --optimize-autoloader --no-dev
-          docker-compose exec -T app php artisan migrate --force
+          kubectl run migrations \
+            --image=${{ env.IMAGE }}:${{ github.sha }} \
+            --restart=Never \
+            --namespace=${{ env.NAMESPACE }} \
+            --env-from=configmap/api-gateway-config \
+            --env-from=secret/api-gateway-secret \
+            --command -- php artisan migrate --force
+          kubectl wait --for=condition=complete job/migrations -n ${{ env.NAMESPACE }} --timeout=60s || true
+          kubectl delete pod migrations -n ${{ env.NAMESPACE }} --ignore-not-found
 
       - name: Verify deployment
         run: |
-          sleep 5
-          curl -f http://localhost:8000/up || exit 1
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          curl -f http://localhost:30080/up || exit 1
 
   # ─────────────────────────────────────────────
   # Deploy to AWS ECS
