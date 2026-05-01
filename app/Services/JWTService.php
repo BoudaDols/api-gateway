@@ -146,7 +146,6 @@ class JWTService
             );
 
             return $decodedPayload;
-
         } catch (Exception $e) {
             return null;
         }
@@ -173,7 +172,6 @@ class JWTService
 
             // Compare signatures (timing-safe comparison)
             return hash_equals($signature, $validSignature);
-
         } catch (Exception $e) {
             return false;
         }

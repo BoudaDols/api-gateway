@@ -35,7 +35,6 @@ class ServiceProxyService
 
             return response($response->body(), $response->status())
                 ->header('Content-Type', $response->header('Content-Type') ?: 'application/json');
-
         } catch (ConnectionException) {
             return response()->json([
                 'success' => false,
