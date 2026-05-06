@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class PurgeExpiredOtps extends Command
 {
-    protected $signature = 'otps:purge';
+    protected $signature = 'otps:purge'; // @suppress CWE-798 - Artisan command signature, not a credential
 
     protected $description = 'Delete expired OTPs from the phone_otps table';
 

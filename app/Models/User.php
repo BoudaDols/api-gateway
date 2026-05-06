@@ -46,8 +46,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            // Laravel attribute casting - not a hardcoded credential
-            'password' => 'hashed',
+            'password' => 'hashed', // @suppress CWE-798 - Laravel cast type, not a credential
         ];
     }
 }

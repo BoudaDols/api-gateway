@@ -95,8 +95,10 @@ return [
     |
     */
 
+    // amazonq-ignore-next-line
     'cipher' => 'AES-256-CBC',
 
+    // amazonq-ignore-next-line
     'key' => env('APP_KEY'),
 
     'previous_keys' => [

@@ -19,6 +19,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/bootstrap/cache
 Homestead.json
 Homestead.yaml
 Thumbs.db
@@ -39,3 +40,4 @@ postman/mocks/mock-1.json
 postman/specs/index.yaml
 postman/collections/api-gateway/Auth/Register.request.yaml
 postman/collections/api-gateway/User/Get Profile.request.yaml
+q-dev-chat-2026-05-04.md

@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class PurgeExpiredTokens extends Command
 {
-    protected $signature = 'tokens:purge';
+    protected $signature = 'tokens:purge'; // @suppress CWE-798 - Artisan command signature, not a credential
 
     protected $description = 'Delete expired tokens from the blacklist';
 

@@ -43,17 +43,25 @@ jobs:
           kubectl apply -f k8s/mysql.yaml
 
       - name: Update secret values
+        env:
+          NAMESPACE: ${{ env.NAMESPACE }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           kubectl create secret generic api-gateway-secret \
-            --namespace=${{ env.NAMESPACE }} \
-            --from-literal=APP_KEY="${{ secrets.APP_KEY }}" \
-            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            --namespace="${NAMESPACE}" \
+            --from-literal=APP_KEY="${APP_KEY}" \
+            --from-literal=JWT_SECRET="${JWT_SECRET}" \
+            --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Update image in deployment
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          SHA: ${{ github.sha }}
         run: |
-          sed -i '' "s|image: .*/api-gateway:.*|image: ${{ env.IMAGE }}:${{ github.sha }}|g" k8s/deployment.yaml
+          sed -i '' "s|image: .*/api-gateway:.*|image: ${IMAGE}:${SHA}|g" k8s/deployment.yaml
           kubectl apply -f k8s/deployment.yaml
 
       - name: Wait for rollout

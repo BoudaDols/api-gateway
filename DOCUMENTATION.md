@@ -688,7 +688,7 @@ Requires the Laravel scheduler cron on the server:
 # Application
 APP_NAME="API Gateway"
 APP_ENV=production
-APP_KEY=                        # php artisan key:generate
+APP_KEY=<run: php artisan key:generate --show>
 APP_DEBUG=false
 APP_URL=https://api.example.com
 

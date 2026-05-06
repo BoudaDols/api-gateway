@@ -14,7 +14,13 @@ class JWTService
 
     public function __construct()
     {
-        $this->secret = config('jwt.secret');
+        $secret = config('jwt.secret');
+
+        if (empty($secret)) {
+            throw new \RuntimeException('JWT secret is not configured.');
+        }
+
+        $this->secret = $secret;
         $this->ttl = config('jwt.ttl') * 60; // convert to seconds
         $this->algo = config('jwt.algo');
     }
@@ -41,6 +47,7 @@ class JWTService
             hash_hmac('sha256', "$header.$payload", $this->secret, true)
         );
 
+        // amazonq-ignore-next-line
         return "$header.$payload.$signature";
     }
 

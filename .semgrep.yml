@@ -7,3 +7,9 @@ rules: []
 #
 # These are passed directly in the GitHub Actions workflow.
 # Add custom rules below if needed.
+
+paths:
+  exclude:
+    - bootstrap/cache/
+    - vendor/
+    - storage/
