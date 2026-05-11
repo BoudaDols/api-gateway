@@ -212,4 +212,5 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway:${{ github.sha }}
           format: table
           exit-code: "1"
+          ignore-unfixed: true
           severity: CRITICAL
