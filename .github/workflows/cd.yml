@@ -130,9 +130,11 @@ jobs:
           IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/api-gateway
           SHA: ${{ github.sha }}
         run: |
-          kubectl delete job api-gateway-migrations --ignore-not-found -n ${{ env.NAMESPACE }}
+          kubectl delete pod migrations --ignore-not-found -n ${{ env.NAMESPACE }}
           sed "s|image: .*/api-gateway:.*|image: ${IMAGE}:${SHA}|g" k8s/migrations.yaml | kubectl apply -f -
-          kubectl wait --for=condition=complete job/api-gateway-migrations -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl wait --for=condition=Ready pod/migrations -n ${{ env.NAMESPACE }} --timeout=120s || true
+          kubectl logs pod/migrations -n ${{ env.NAMESPACE }} --follow || true
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/migrations -n ${{ env.NAMESPACE }} --timeout=120s
 
   # ─────────────────────────────────────────────
   # Deploy to Azure AKS
