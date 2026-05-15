@@ -50,10 +50,11 @@ class JwtMiddleware
 
         // Attach user info to request (supports V1 email tokens and V2 phone tokens)
         $request->merge([
+            'user_id'    => $payload['id'] ?? null,
             'user_email' => $payload['email'] ?? null,
             'user_phone' => $payload['phone'] ?? null,
-            'user_name' => $payload['name'],
-            'user_role' => $payload['role'],
+            'user_name'  => $payload['name'],
+            'user_role'  => $payload['role'],
         ]);
 
         return $next($request);

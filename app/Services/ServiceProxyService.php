@@ -20,10 +20,11 @@ class ServiceProxyService
 
         // User context headers — microservices trust these instead of validating JWT
         $headers = [
+            'X-User-ID'    => $request->input('user_id'),
             'X-User-Email' => $request->input('user_email'),
-            'X-User-Name' => $request->input('user_name'),
-            'X-User-Role' => $request->input('user_role'),
-            'Accept' => 'application/json',
+            'X-User-Name'  => $request->input('user_name'),
+            'X-User-Role'  => $request->input('user_role'),
+            'Accept'       => 'application/json',
         ];
 
         try {

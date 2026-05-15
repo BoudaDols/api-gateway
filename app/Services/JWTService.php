@@ -123,10 +123,11 @@ class JWTService
 
         // 4. Generate new token preserving all user data (supports V1 email and V2 phone)
         $newPayload = array_filter([
+            'id'    => $payload['id'] ?? null,
             'email' => $payload['email'] ?? null,
             'phone' => $payload['phone'] ?? null,
-            'name' => $payload['name'],
-            'role' => $payload['role'],
+            'name'  => $payload['name'],
+            'role'  => $payload['role'],
         ], fn ($v) => $v !== null);
 
         return $this->generateToken($newPayload);

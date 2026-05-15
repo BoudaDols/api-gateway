@@ -33,9 +33,10 @@ class AuthController extends Controller
 
         // Generate JWT token with user data
         $token = $this->jwtService->generateToken([
+            'id'    => $user->uuid,
             'email' => $user->email,
-            'name' => $user->name,
-            'role' => $user->role,
+            'name'  => $user->name,
+            'role'  => $user->role,
         ]);
 
         // Return success response with token and user data
@@ -47,9 +48,10 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
-                    'name' => $user->name,
+                    'id'    => $user->uuid,
+                    'name'  => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role,
+                    'role'  => $user->role,
                 ],
             ],
         ], 201);
@@ -73,9 +75,10 @@ class AuthController extends Controller
 
         // Generate JWT token with user data
         $token = $this->jwtService->generateToken([
+            'id'    => $user->uuid,
             'email' => $user->email,
-            'name' => $user->name,
-            'role' => $user->role,
+            'name'  => $user->name,
+            'role'  => $user->role,
         ]);
 
         // Return success response with token and user data
@@ -87,9 +90,10 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
-                    'name' => $user->name,
+                    'id'    => $user->uuid,
+                    'name'  => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role,
+                    'role'  => $user->role,
                 ],
             ],
         ]);
