@@ -2,26 +2,35 @@
 
 namespace App\Services;
 
-use App\Models\TokenBlacklist;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class TokenBlacklistService
 {
+    private const PREFIX = 'token_blacklist:';
+
+    /**
+     * Blacklist a token. It auto-expires when the token itself would expire.
+     */
     public function blacklist(string $token, int $expiresAt): void
     {
-        TokenBlacklist::create([
-            'token' => $token,
-            'expires_at' => Carbon::createFromTimestamp($expiresAt),
-        ]);
+        $ttl = max($expiresAt - time(), 0);
+
+        Cache::put(self::PREFIX . hash('sha256', $token), true, $ttl);
     }
 
+    /**
+     * Check if a token is blacklisted.
+     */
     public function isBlacklisted(string $token): bool
     {
-        return TokenBlacklist::where('token', $token)->exists();
+        return Cache::has(self::PREFIX . hash('sha256', $token));
     }
 
+    /**
+     * No-op — Redis TTL handles expiration automatically.
+     */
     public function purgeExpired(): int
     {
-        return TokenBlacklist::where('expires_at', '<', now())->delete();
+        return 0;
     }
 }

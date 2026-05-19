@@ -63,12 +63,14 @@ class LogoutTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_token_is_blacklisted_in_database_after_logout(): void
+    public function test_token_is_blacklisted_after_logout(): void
     {
         $token = $this->getToken();
 
         $this->postJson('/api/auth/logout', [], ['Authorization' => "Bearer $token"]);
 
-        $this->assertDatabaseHas('token_blacklist', ['token' => $token]);
+        // Token should be rejected on subsequent requests (blacklisted in cache)
+        $response = $this->getJson('/api/profile', ['Authorization' => "Bearer $token"]);
+        $response->assertStatus(401);
     }
 }

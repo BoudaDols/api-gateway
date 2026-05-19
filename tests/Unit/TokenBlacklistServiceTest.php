@@ -2,27 +2,25 @@
 
 namespace Tests\Unit;
 
-use App\Models\TokenBlacklist;
 use App\Services\TokenBlacklistService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class TokenBlacklistServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     private TokenBlacklistService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
+        Cache::flush();
         $this->service = new TokenBlacklistService;
     }
 
-    public function test_blacklist_stores_token(): void
+    public function test_blacklist_stores_token_in_cache(): void
     {
         $this->service->blacklist('test.token.here', time() + 3600);
-        $this->assertDatabaseHas('token_blacklist', ['token' => 'test.token.here']);
+        $this->assertTrue($this->service->isBlacklisted('test.token.here'));
     }
 
     public function test_is_blacklisted_returns_true_for_blacklisted_token(): void
@@ -36,29 +34,9 @@ class TokenBlacklistServiceTest extends TestCase
         $this->assertFalse($this->service->isBlacklisted('unknown.token.here'));
     }
 
-    public function test_purge_expired_removes_expired_tokens(): void
+    public function test_purge_expired_returns_zero(): void
     {
-        // Expired token
-        TokenBlacklist::create([
-            'token' => 'expired.token',
-            'expires_at' => now()->subHour(),
-        ]);
-
-        // Valid token
-        TokenBlacklist::create([
-            'token' => 'valid.token',
-            'expires_at' => now()->addHour(),
-        ]);
-
-        $deleted = $this->service->purgeExpired();
-
-        $this->assertEquals(1, $deleted);
-        $this->assertDatabaseMissing('token_blacklist', ['token' => 'expired.token']);
-        $this->assertDatabaseHas('token_blacklist', ['token' => 'valid.token']);
-    }
-
-    public function test_purge_expired_returns_zero_when_nothing_to_purge(): void
-    {
+        // Redis TTL handles expiration — purgeExpired is a no-op
         $deleted = $this->service->purgeExpired();
         $this->assertEquals(0, $deleted);
     }
