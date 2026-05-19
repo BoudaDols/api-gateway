@@ -59,7 +59,6 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
-                    'id'    => $user->uuid,
                     'name'  => $user->name,
                     'email' => $user->email,
                     'role'  => $user->role,
@@ -120,7 +119,6 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
-                    'id'    => $user->uuid,
                     'name'  => $user->name,
                     'email' => $user->email,
                     'role'  => $user->role,
