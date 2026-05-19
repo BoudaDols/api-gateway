@@ -7,6 +7,7 @@ use App\Http\Requests\V2\SendOtpRequest;
 use App\Http\Requests\V2\VerifyOtpRequest;
 use App\Models\User;
 use App\Services\JWTService;
+use App\Services\KafkaProducer;
 use App\Services\OtpService;
 use App\Services\SmsService;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,7 @@ class AuthController extends Controller
         private JWTService $jwtService,
         private OtpService $otpService,
         private SmsService $smsService,
+        private KafkaProducer $kafka,
     ) {}
 
     /**
@@ -76,6 +78,15 @@ class AuthController extends Controller
             'name' => $user->name,
             'role' => $user->role,
         ]);
+
+        // Publish user.registered event
+        $this->kafka->publish('user.registered', [
+            'event'         => 'user.registered',
+            'user_id'       => $user->uuid ?? $user->id,
+            'user_phone'    => $user->phone,
+            'user_name'     => $user->name,
+            'registered_at' => now()->toIso8601String(),
+        ], (string) ($user->uuid ?? $user->id));
 
         return response()->json([
             'success' => true,
@@ -150,6 +161,15 @@ class AuthController extends Controller
             'name' => $user->name,
             'role' => $user->role,
         ]);
+
+        // Publish login success event
+        $this->kafka->publish('user.login', [
+            'event'        => 'user.login_success',
+            'user_id'      => $user->uuid ?? $user->id,
+            'user_phone'   => $user->phone,
+            'user_name'    => $user->name,
+            'logged_in_at' => now()->toIso8601String(),
+        ], (string) ($user->uuid ?? $user->id));
 
         return response()->json([
             'success' => true,

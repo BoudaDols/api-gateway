@@ -6,12 +6,15 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use App\Services\KafkaProducer;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->singleton(KafkaProducer::class, function () {
+            return new KafkaProducer();
+        });
     }
 
     public function boot(): void

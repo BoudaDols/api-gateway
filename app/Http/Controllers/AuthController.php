@@ -6,6 +6,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use App\Services\JWTService;
+use App\Services\KafkaProducer;
 use App\Services\TokenBlacklistService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,8 @@ class AuthController extends Controller
 {
     public function __construct(
         private JWTService $jwtService,
-        private TokenBlacklistService $blacklistService
+        private TokenBlacklistService $blacklistService,
+        private KafkaProducer $kafka,
     ) {}
 
     /**
@@ -38,6 +40,15 @@ class AuthController extends Controller
             'name'  => $user->name,
             'role'  => $user->role,
         ]);
+
+        // Publish user.registered event
+        $this->kafka->publish('user.registered', [
+            'event'         => 'user.registered',
+            'user_id'       => $user->uuid,
+            'user_email'    => $user->email,
+            'user_name'     => $user->name,
+            'registered_at' => now()->toIso8601String(),
+        ], $user->uuid);
 
         // Return success response with token and user data
         return response()->json([
@@ -67,6 +78,15 @@ class AuthController extends Controller
 
         // Check if user exists and password is correct
         if (! $user || ! Hash::check($request->validated()['password'], $user->password)) {
+            // Publish login failed event
+            $this->kafka->publish('user.login', [
+                'event'     => 'user.login_failed',
+                'email'     => $request->validated()['email'],
+                'reason'    => 'Invalid credentials',
+                'ip'        => $request->ip(),
+                'failed_at' => now()->toIso8601String(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid credentials',
@@ -80,6 +100,16 @@ class AuthController extends Controller
             'name'  => $user->name,
             'role'  => $user->role,
         ]);
+
+        // Publish login success event
+        $this->kafka->publish('user.login', [
+            'event'        => 'user.login_success',
+            'user_id'      => $user->uuid,
+            'user_email'   => $user->email,
+            'user_name'    => $user->name,
+            'ip'           => $request->ip(),
+            'logged_in_at' => now()->toIso8601String(),
+        ], $user->uuid);
 
         // Return success response with token and user data
         return response()->json([
