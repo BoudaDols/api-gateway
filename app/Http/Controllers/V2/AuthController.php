@@ -73,11 +73,14 @@ class AuthController extends Controller
             'role' => 'user',
         ]);
 
-        $token = $this->jwtService->generateToken([
+        $userData = [
             'phone' => $user->phone,
             'name' => $user->name,
             'role' => $user->role,
-        ]);
+        ];
+
+        $token = $this->jwtService->generateToken($userData);
+        $refreshToken = $this->jwtService->generateRefreshToken($userData);
 
         // Publish user.registered event
         $this->kafka->publish('user.registered', [
@@ -92,7 +95,8 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Registration successful',
             'data' => [
-                'token' => $token,
+                'access_token'  => $token,
+                'refresh_token' => $refreshToken,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
@@ -156,11 +160,14 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = $this->jwtService->generateToken([
+        $userData = [
             'phone' => $user->phone,
             'name' => $user->name,
             'role' => $user->role,
-        ]);
+        ];
+
+        $token = $this->jwtService->generateToken($userData);
+        $refreshToken = $this->jwtService->generateRefreshToken($userData);
 
         // Publish login success event
         $this->kafka->publish('user.login', [
@@ -175,7 +182,8 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'data' => [
-                'token' => $token,
+                'access_token'  => $token,
+                'refresh_token' => $refreshToken,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [

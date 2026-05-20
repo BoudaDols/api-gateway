@@ -25,7 +25,7 @@ class RegisterTest extends TestCase
             ->assertJsonStructure([
                 'success',
                 'message',
-                'data' => ['token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
             ])
             ->assertJson(['success' => true]);
     }
@@ -54,7 +54,8 @@ class RegisterTest extends TestCase
     {
         $response = $this->postJson('/api/auth/register', $this->validPayload);
 
-        $this->assertNotEmpty($response->json('data.token'));
+        $this->assertNotEmpty($response->json('data.access_token'));
+        $this->assertNotEmpty($response->json('data.refresh_token'));
         $this->assertEquals('Bearer', $response->json('data.token_type'));
     }
 

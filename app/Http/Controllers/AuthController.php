@@ -25,21 +25,22 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        // Create user with default 'user' role
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'role' => 'user', // Always 'user' - admins created separately
+            'role' => 'user',
         ]);
 
-        // Generate JWT token with user data
-        $token = $this->jwtService->generateToken([
+        $userData = [
             'id'    => $user->uuid,
             'email' => $user->email,
             'name'  => $user->name,
             'role'  => $user->role,
-        ]);
+        ];
+
+        $accessToken = $this->jwtService->generateToken($userData);
+        $refreshToken = $this->jwtService->generateRefreshToken($userData);
 
         // Publish user.registered event
         $this->kafka->publish('user.registered', [
@@ -50,14 +51,14 @@ class AuthController extends Controller
             'registered_at' => now()->toIso8601String(),
         ], $user->uuid);
 
-        // Return success response with token and user data
         return response()->json([
             'success' => true,
             'message' => 'Registration successful',
             'data' => [
-                'token' => $token,
-                'token_type' => 'Bearer',
-                'expires_in' => config('jwt.ttl') * 60,
+                'access_token'  => $accessToken,
+                'refresh_token' => $refreshToken,
+                'token_type'    => 'Bearer',
+                'expires_in'    => config('jwt.ttl') * 60,
                 'user' => [
                     'name'  => $user->name,
                     'email' => $user->email,
@@ -72,12 +73,9 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        // Email is validated by LoginRequest (email format)
         $user = User::where('email', $request->validated()['email'])->first();
 
-        // Check if user exists and password is correct
         if (! $user || ! Hash::check($request->validated()['password'], $user->password)) {
-            // Publish login failed event
             $this->kafka->publish('user.login', [
                 'event'     => 'user.login_failed',
                 'email'     => $request->validated()['email'],
@@ -92,13 +90,15 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Generate JWT token with user data
-        $token = $this->jwtService->generateToken([
+        $userData = [
             'id'    => $user->uuid,
             'email' => $user->email,
             'name'  => $user->name,
             'role'  => $user->role,
-        ]);
+        ];
+
+        $accessToken = $this->jwtService->generateToken($userData);
+        $refreshToken = $this->jwtService->generateRefreshToken($userData);
 
         // Publish login success event
         $this->kafka->publish('user.login', [
@@ -110,14 +110,14 @@ class AuthController extends Controller
             'logged_in_at' => now()->toIso8601String(),
         ], $user->uuid);
 
-        // Return success response with token and user data
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
             'data' => [
-                'token' => $token,
-                'token_type' => 'Bearer',
-                'expires_in' => config('jwt.ttl') * 60,
+                'access_token'  => $accessToken,
+                'refresh_token' => $refreshToken,
+                'token_type'    => 'Bearer',
+                'expires_in'    => config('jwt.ttl') * 60,
                 'user' => [
                     'name'  => $user->name,
                     'email' => $user->email,
@@ -128,14 +128,21 @@ class AuthController extends Controller
     }
 
     /**
-     * Logout - blacklist the current token
+     * Logout — blacklist the access token and revoke the refresh token.
      */
     public function logout(Request $request): JsonResponse
     {
-        $token = $request->bearerToken();
-        $payload = $this->jwtService->validateToken($token);
+        $accessToken = $request->bearerToken();
+        $payload = $this->jwtService->validateToken($accessToken);
 
-        $this->blacklistService->blacklist($token, $payload['exp']);
+        // Blacklist the access token so it can't be reused
+        $this->blacklistService->blacklist($accessToken, $payload['exp']);
+
+        // Revoke the refresh token if provided in the request body
+        $refreshToken = $request->input('refresh_token');
+        if ($refreshToken) {
+            $this->jwtService->revokeRefreshToken($refreshToken);
+        }
 
         return response()->json([
             'success' => true,
@@ -144,38 +151,40 @@ class AuthController extends Controller
     }
 
     /**
-     * Refresh an expired or about-to-expire token
+     * Refresh — exchange a valid refresh token for a new access token.
+     * The refresh token itself stays valid until it expires or the user logs out.
      */
     public function refresh(Request $request): JsonResponse
     {
-        // 1. Get token from Authorization header
-        $oldToken = $request->bearerToken();
+        $refreshToken = $request->input('refresh_token');
 
-        if (! $oldToken) {
+        if (! $refreshToken) {
             return response()->json([
                 'success' => false,
-                'message' => 'Token not provided',
+                'message' => 'Refresh token not provided',
             ], 401);
         }
 
-        // 2. Try to refresh the token
-        $newToken = $this->jwtService->refreshToken($oldToken);
+        // Validate the refresh token (checks Redis)
+        $userData = $this->jwtService->validateRefreshToken($refreshToken);
 
-        if (! $newToken) {
+        if (! $userData) {
             return response()->json([
                 'success' => false,
-                'message' => 'Token cannot be refreshed. Please login again.',
+                'message' => 'Invalid or expired refresh token. Please login again.',
             ], 401);
         }
 
-        // 3. Return new token
+        // Generate a new access token with the stored user data
+        $newAccessToken = $this->jwtService->generateToken($userData);
+
         return response()->json([
             'success' => true,
             'message' => 'Token refreshed successfully',
             'data' => [
-                'token' => $newToken,
-                'token_type' => 'Bearer',
-                'expires_in' => config('jwt.ttl') * 60,
+                'access_token' => $newAccessToken,
+                'token_type'   => 'Bearer',
+                'expires_in'   => config('jwt.ttl') * 60,
             ],
         ]);
     }

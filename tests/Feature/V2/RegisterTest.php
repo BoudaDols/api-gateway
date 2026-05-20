@@ -100,7 +100,7 @@ class RegisterTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonStructure([
                 'success',
-                'data' => ['token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
             ])
             ->assertJson(['success' => true]);
 
@@ -178,7 +178,7 @@ class RegisterTest extends TestCase
             'name' => 'John Doe',
         ]);
 
-        $token = $response->json('data.token');
+        $token = $response->json('data.access_token');
 
         $profile = $this->getJson('/api/profile', ['Authorization' => "Bearer $token"]);
         $profile->assertStatus(200);

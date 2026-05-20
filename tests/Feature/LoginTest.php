@@ -27,7 +27,7 @@ class LoginTest extends TestCase
             ->assertJsonStructure([
                 'success',
                 'message',
-                'data' => ['token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
             ])
             ->assertJson(['success' => true]);
     }

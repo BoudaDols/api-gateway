@@ -86,7 +86,7 @@ class LoginTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'success',
-                'data' => ['token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
             ])
             ->assertJson(['success' => true]);
     }
@@ -179,7 +179,7 @@ class LoginTest extends TestCase
             'otp' => $code,
         ]);
 
-        $token = $response->json('data.token');
+        $token = $response->json('data.access_token');
 
         $this->getJson('/api/profile', ['Authorization' => "Bearer $token"])
             ->assertStatus(200);
@@ -190,12 +190,14 @@ class LoginTest extends TestCase
         $this->createUser();
         $code = app(OtpService::class)->generate($this->phone, 'login');
 
-        $token = $this->postJson('/api/v2/auth/login/verify', [
+        $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
             'otp' => $code,
-        ])->json('data.token');
+        ]);
 
-        $this->postJson('/api/auth/refresh', [], ['Authorization' => "Bearer $token"])
+        $refreshToken = $response->json('data.refresh_token');
+
+        $this->postJson('/api/auth/refresh', ['refresh_token' => $refreshToken])
             ->assertStatus(200)
             ->assertJson(['success' => true]);
     }
@@ -205,10 +207,12 @@ class LoginTest extends TestCase
         $this->createUser();
         $code = app(OtpService::class)->generate($this->phone, 'login');
 
-        $token = $this->postJson('/api/v2/auth/login/verify', [
+        $response = $this->postJson('/api/v2/auth/login/verify', [
             'phone' => $this->phone,
             'otp' => $code,
-        ])->json('data.token');
+        ]);
+
+        $token = $response->json('data.access_token');
 
         $this->postJson('/api/auth/logout', [], ['Authorization' => "Bearer $token"])
             ->assertStatus(200);

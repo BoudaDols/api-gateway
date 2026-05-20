@@ -18,74 +18,72 @@ class TokenRefreshTest extends TestCase
         $this->jwt = app(JWTService::class);
     }
 
-    private function makeToken(array $overrides = []): string
+    private function makeRefreshToken(array $userData = []): string
     {
-        return $this->jwt->generateToken(array_merge([
+        $data = array_merge([
+            'id'    => 'test-uuid',
             'email' => 'test@example.com',
-            'name' => 'Test User',
-            'role' => 'user',
-        ], $overrides));
+            'name'  => 'Test User',
+            'role'  => 'user',
+        ], $userData);
+
+        return $this->jwt->generateRefreshToken($data);
     }
 
-    public function test_valid_token_can_be_refreshed(): void
+    public function test_valid_refresh_token_returns_new_access_token(): void
     {
-        $token = $this->makeToken();
+        $refreshToken = $this->makeRefreshToken();
 
-        $response = $this->postJson('/api/auth/refresh', [], [
-            'Authorization' => "Bearer $token",
+        $response = $this->postJson('/api/auth/refresh', [
+            'refresh_token' => $refreshToken,
         ]);
 
         $response->assertStatus(200)
-            ->assertJsonStructure(['success', 'data' => ['token', 'token_type', 'expires_in']])
+            ->assertJsonStructure(['success', 'data' => ['access_token', 'token_type', 'expires_in']])
             ->assertJson(['success' => true]);
     }
 
-    public function test_refreshed_token_is_different_from_original(): void
+    public function test_refreshed_access_token_works_on_protected_routes(): void
     {
-        $token = $this->makeToken();
-        sleep(1); // ensure different iat/exp
+        $refreshToken = $this->makeRefreshToken();
 
-        $response = $this->postJson('/api/auth/refresh', [], [
-            'Authorization' => "Bearer $token",
+        $response = $this->postJson('/api/auth/refresh', [
+            'refresh_token' => $refreshToken,
         ]);
 
-        $this->assertNotEquals($token, $response->json('data.token'));
+        $accessToken = $response->json('data.access_token');
+
+        $this->getJson('/api/profile', ['Authorization' => "Bearer $accessToken"])
+            ->assertStatus(200);
     }
 
-    public function test_refresh_fails_without_token(): void
+    public function test_refresh_fails_without_refresh_token(): void
     {
-        $response = $this->postJson('/api/auth/refresh');
+        $response = $this->postJson('/api/auth/refresh', []);
 
         $response->assertStatus(401)
-            ->assertJson(['success' => false, 'message' => 'Token not provided']);
+            ->assertJson(['success' => false, 'message' => 'Refresh token not provided']);
     }
 
-    public function test_refresh_fails_for_tampered_token(): void
+    public function test_refresh_fails_with_invalid_refresh_token(): void
     {
-        $token = $this->makeToken();
-        $parts = explode('.', $token);
-        $parts[2] = 'badsignature';
-
-        $response = $this->postJson('/api/auth/refresh', [], [
-            'Authorization' => 'Bearer '.implode('.', $parts),
+        $response = $this->postJson('/api/auth/refresh', [
+            'refresh_token' => 'invalid-random-string',
         ]);
 
         $response->assertStatus(401)
             ->assertJson(['success' => false]);
     }
 
-    public function test_refresh_fails_for_token_outside_refresh_window(): void
+    public function test_refresh_fails_after_token_is_revoked(): void
     {
-        $token = $this->makeToken();
-        $parts = explode('.', $token);
-        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
-        $payload['exp'] = time() - (config('jwt.refresh_ttl') * 60) - 1;
-        $parts[1] = rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
-        $secret = config('jwt.secret');
-        $parts[2] = rtrim(strtr(base64_encode(hash_hmac('sha256', "$parts[0].$parts[1]", $secret, true)), '+/', '-_'), '=');
+        $refreshToken = $this->makeRefreshToken();
 
-        $response = $this->postJson('/api/auth/refresh', [], [
-            'Authorization' => 'Bearer '.implode('.', $parts),
+        // Revoke it
+        $this->jwt->revokeRefreshToken($refreshToken);
+
+        $response = $this->postJson('/api/auth/refresh', [
+            'refresh_token' => $refreshToken,
         ]);
 
         $response->assertStatus(401)

@@ -73,52 +73,42 @@ class JWTServiceTest extends TestCase
         $this->assertGreaterThan(time(), $payload['exp']);
     }
 
-    public function test_generates_new_token_on_refresh(): void
+    public function test_generates_refresh_token(): void
     {
-        $token = $this->jwt->generateToken(['email' => 'test@example.com', 'name' => 'Test', 'role' => 'user']);
-        sleep(1); // ensure different iat/exp
-        $newToken = $this->jwt->refreshToken($token);
+        $refreshToken = $this->jwt->generateRefreshToken([
+            'id' => 'uuid-123',
+            'email' => 'test@example.com',
+            'name' => 'Test',
+            'role' => 'user',
+        ]);
 
-        $this->assertNotNull($newToken);
-        $this->assertNotEquals($token, $newToken);
+        $this->assertEquals(64, strlen($refreshToken));
     }
 
-    public function test_refresh_preserves_user_data(): void
+    public function test_validate_refresh_token_returns_user_data(): void
     {
-        $token = $this->jwt->generateToken(['email' => 'test@example.com', 'name' => 'Test', 'role' => 'admin']);
-        $newToken = $this->jwt->refreshToken($token);
-        $payload = $this->jwt->validateToken($newToken);
+        $userData = ['id' => 'uuid-123', 'email' => 'test@example.com', 'name' => 'Test', 'role' => 'user'];
+        $refreshToken = $this->jwt->generateRefreshToken($userData);
 
-        $this->assertEquals('test@example.com', $payload['email']);
-        $this->assertEquals('Test', $payload['name']);
-        $this->assertEquals('admin', $payload['role']);
+        $result = $this->jwt->validateRefreshToken($refreshToken);
+
+        $this->assertNotNull($result);
+        $this->assertEquals('test@example.com', $result['email']);
+        $this->assertEquals('uuid-123', $result['id']);
     }
 
-    public function test_refresh_returns_null_for_tampered_token(): void
+    public function test_validate_refresh_token_returns_null_for_invalid_token(): void
     {
-        $token = $this->jwt->generateToken(['email' => 'test@example.com', 'name' => 'Test', 'role' => 'user']);
-        $parts = explode('.', $token);
-        $parts[2] = 'badsignature';
-        $tampered = implode('.', $parts);
-
-        $this->assertNull($this->jwt->refreshToken($tampered));
+        $this->assertNull($this->jwt->validateRefreshToken('invalid-random-string'));
     }
 
-    public function test_refresh_returns_null_for_token_outside_refresh_window(): void
+    public function test_revoke_refresh_token_invalidates_it(): void
     {
-        $token = $this->jwt->generateToken(['email' => 'test@example.com', 'name' => 'Test', 'role' => 'user']);
+        $userData = ['id' => 'uuid-123', 'email' => 'test@example.com', 'name' => 'Test', 'role' => 'user'];
+        $refreshToken = $this->jwt->generateRefreshToken($userData);
 
-        // Rebuild token with exp way in the past (beyond refresh window)
-        $parts = explode('.', $token);
-        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
-        $payload['exp'] = time() - (config('jwt.refresh_ttl') * 60) - 1;
-        $parts[1] = rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+        $this->jwt->revokeRefreshToken($refreshToken);
 
-        // Recalculate signature
-        $secret = config('jwt.secret');
-        $parts[2] = rtrim(strtr(base64_encode(hash_hmac('sha256', "$parts[0].$parts[1]", $secret, true)), '+/', '-_'), '=');
-        $oldToken = implode('.', $parts);
-
-        $this->assertNull($this->jwt->refreshToken($oldToken));
+        $this->assertNull($this->jwt->validateRefreshToken($refreshToken));
     }
 }

@@ -23,7 +23,7 @@ return [
     |--------------------------------------------------------------------------
     | Refresh token expiration time in minutes. Default is 20160 (2 weeks).
     */
-    'refresh_ttl' => env('JWT_REFRESH_TTL', 20160),
+    'refresh_ttl' => env('JWT_REFRESH_TTL', 10080),
 
     /*
     |--------------------------------------------------------------------------
