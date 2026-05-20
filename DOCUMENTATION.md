@@ -120,8 +120,9 @@ POST /api/auth/login
   ├── LoginRequest validates email + password format
   ├── Find user by email
   ├── Hash::check() verifies password
-  ├── JWTService::generateToken() creates signed token
-  └── Return token + user data
+  ├── JWTService::generateToken() creates access token (1h)
+  ├── JWTService::generateRefreshToken() creates opaque refresh token (7 days, stored in Redis)
+  └── Return access_token + refresh_token + user data
 ```
 
 ### Register
@@ -130,43 +131,45 @@ POST /api/auth/register
   │
   ├── RegisterRequest validates name, email (unique), password (confirmed)
   ├── User::create() with role hardcoded to 'user'
-  ├── JWTService::generateToken() creates signed token
-  └── Return token + user data (201)
+  ├── JWTService::generateToken() creates access token (1h)
+  ├── JWTService::generateRefreshToken() creates opaque refresh token (7 days, stored in Redis)
+  └── Return access_token + refresh_token + user data (201)
 ```
 
 ### Authenticated Request
 ```
 GET /api/profile
-Authorization: Bearer <token>
+Authorization: Bearer <access_token>
   │
   ├── JwtMiddleware extracts bearer token
   ├── JWTService::validateToken() checks signature + expiry
-  ├── TokenBlacklistService::isBlacklisted() checks revocation
-  ├── Merge user_email, user_name, user_role into request
+  ├── TokenBlacklistService::isBlacklisted() checks revocation (Redis)
+  ├── Merge user_id, user_email, user_name, user_role into request
   └── Controller reads $request->input('user_email') etc.
 ```
 
 ### Logout
 ```
 POST /api/auth/logout
-Authorization: Bearer <token>
+Authorization: Bearer <access_token>
+Body: {"refresh_token": "<refresh_token>"}  (optional)
   │
-  ├── JwtMiddleware validates token (must be valid to logout)
-  ├── TokenBlacklistService::blacklist() stores token + expires_at
-  └── Return success (token is now rejected on all future requests)
+  ├── JwtMiddleware validates access token (must be valid to logout)
+  ├── TokenBlacklistService::blacklist() stores token hash in Redis with TTL
+  ├── JWTService::revokeRefreshToken() deletes refresh token from Redis (if provided)
+  └── Return success
 ```
 
 ### Token Refresh
 ```
 POST /api/auth/refresh
-Authorization: Bearer <token>  (can be expired)
+Body: {"refresh_token": "<refresh_token>"}
   │
-  ├── No JWT middleware (token may be expired)
-  ├── JWTService::decodeToken() decodes without expiry check
-  ├── JWTService::verifySignature() checks HMAC-SHA256 signature
-  ├── Check token expired less than 14 days ago (refresh window)
-  ├── JWTService::generateToken() issues new token
-  └── Return new token
+  ├── No JWT middleware (access token is expired)
+  ├── JWTService::validateRefreshToken() looks up token in Redis
+  ├── Not found or expired? return 401
+  ├── JWTService::generateToken() issues new access token from stored user data
+  └── Return new access_token (refresh token stays valid)
 ```
 
 ---
@@ -189,6 +192,7 @@ header.payload.signature
 ### Payload
 ```json
 {
+  "id": "3f96454f-f1b5-4129-8069-8a41260685f3",
   "email": "john@example.com",
   "name": "John Doe",
   "role": "user",
@@ -197,7 +201,7 @@ header.payload.signature
 }
 ```
 
-**Note:** User ID is deliberately excluded to prevent enumeration attacks.
+**Note:** The UUID is included in the JWT for internal routing (forwarded as `X-User-ID` to microservices) but is not exposed in API responses.
 
 ### Signature
 ```
@@ -205,10 +209,10 @@ HMAC-SHA256(base64url(header) + "." + base64url(payload), JWT_SECRET)
 ```
 
 ### Lifetime
-| Setting | Default | Config |
-|---|---|---|
-| Token TTL | 60 minutes | `JWT_TTL` |
-| Refresh window | 14 days | `JWT_REFRESH_TTL` |
+| Token | Default | Config | Storage |
+|---|---|---|---|
+| Access token (JWT) | 60 minutes | `JWT_TTL` | Stateless (client-side) |
+| Refresh token (opaque) | 7 days | `JWT_REFRESH_TTL` | Redis |
 
 ---
 
@@ -235,7 +239,8 @@ Rate limited: 10 requests/hour per IP.
   "success": true,
   "message": "Registration successful",
   "data": {
-    "token": "eyJ0eXAiOiJKV1Qi...",
+    "access_token": "eyJ0eXAiOiJKV1Qi...",
+    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -266,7 +271,8 @@ Rate limited: 5 requests/minute per IP.
   "success": true,
   "message": "Login successful",
   "data": {
-    "token": "eyJ0eXAiOiJKV1Qi...",
+    "access_token": "eyJ0eXAiOiJKV1Qi...",
+    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -281,11 +287,13 @@ Rate limited: 5 requests/minute per IP.
 ---
 
 #### POST /api/auth/refresh
-No rate limit. Token may be expired.
+No rate limit. No authentication required (access token is expired).
 
-**Headers:**
-```
-Authorization: Bearer <expired_or_valid_token>
+**Request:**
+```json
+{
+  "refresh_token": "a1b2c3d4e5f6...64chars..."
+}
 ```
 
 **Response `200`:**
@@ -294,7 +302,7 @@ Authorization: Bearer <expired_or_valid_token>
   "success": true,
   "message": "Token refreshed successfully",
   "data": {
-    "token": "eyJ0eXAiOiJKV1Qi...",
+    "access_token": "eyJ0eXAiOiJKV1Qi...",
     "token_type": "Bearer",
     "expires_in": 3600
   }
@@ -330,8 +338,17 @@ Authorization: Bearer <token>
 
 **Headers:**
 ```
-Authorization: Bearer <token>
+Authorization: Bearer <access_token>
 ```
+
+**Request (optional):**
+```json
+{
+  "refresh_token": "a1b2c3d4e5f6...64chars..."
+}
+```
+
+Providing the refresh token revokes it immediately. If omitted, only the access token is blacklisted — the refresh token expires naturally after 7 days.
 
 **Response `200`:**
 ```json
@@ -415,7 +432,8 @@ Rate limited: 3 requests/hour per IP.
   "success": true,
   "message": "Registration successful",
   "data": {
-    "token": "eyJ0eXAiOiJKV1Qi...",
+    "access_token": "eyJ0eXAiOiJKV1Qi...",
+    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -459,7 +477,7 @@ Rate limited: 3 requests/hour per IP.
 }
 ```
 
-**Response `200`:** Same structure as V1 login, with `phone` instead of `email` in user data.
+**Response `200`:** Same structure as V1 login, with `phone` instead of `email` in user data. Includes `access_token` and `refresh_token`.
 
 **Note:** Token refresh and logout use the shared V1 endpoints.
 
@@ -628,30 +646,21 @@ Stdout is captured automatically by Docker and forwarded to:
 
 ## 10. Token Blacklist
 
-### Database table: `token_blacklist`
+### Storage: Redis (Cache)
 
-| Column | Type | Description |
+Blacklisted tokens are stored in Redis with automatic TTL expiration. No database table or scheduled cleanup needed.
+
+| Key pattern | Value | TTL |
 |---|---|---|
-| `id` | bigint | Primary key |
-| `token` | varchar(500) | Full JWT string (unique) |
-| `expires_at` | timestamp | Copied from token `exp` claim |
-| `created_at` | timestamp | When blacklisted |
+| `token_blacklist:{sha256_hash}` | `true` | Same as token's remaining lifetime |
 
 ### How it works
-1. On logout, token is inserted with its `expires_at`
-2. On every authenticated request, `JwtMiddleware` checks the blacklist **after** signature validation (no wasted DB queries on invalid tokens)
-3. Daily cleanup via `php artisan tokens:purge` removes expired entries
+1. On logout, the access token's SHA-256 hash is stored in Redis with a TTL matching the token's remaining lifetime
+2. On every authenticated request, `JwtMiddleware` checks Redis **after** signature validation (no wasted lookups on invalid tokens)
+3. When the TTL expires, Redis automatically removes the entry — no cleanup needed
 
-### Scheduled cleanup
-Registered in `routes/console.php`:
-```php
-Schedule::command('tokens:purge')->daily();
-```
-
-Requires the Laravel scheduler cron on the server:
-```bash
-* * * * * cd /var/www/api-gateway && php artisan schedule:run >> /dev/null 2>&1
-```
+### Refresh token revocation
+Refresh tokens are stored in Redis with a 7-day TTL. On logout (if `refresh_token` is provided in the body), the entry is deleted immediately. Otherwise it expires naturally.
 
 ---
 
@@ -661,8 +670,8 @@ Requires the Laravel scheduler cron on the server:
 | Key | Default | Description |
 |---|---|---|
 | `secret` | `JWT_SECRET` | HMAC signing key |
-| `ttl` | 60 | Token lifetime in minutes |
-| `refresh_ttl` | 20160 | Refresh window in minutes (14 days) |
+| `ttl` | 60 | Access token lifetime in minutes |
+| `refresh_ttl` | 10080 | Refresh token lifetime in minutes (7 days) |
 | `algo` | HS256 | Signing algorithm |
 
 ### config/gateway.php
@@ -702,11 +711,16 @@ DB_PASSWORD=
 
 # JWT
 JWT_SECRET=                     # strong random string, min 32 chars
-JWT_TTL=60                      # token lifetime in minutes
-JWT_REFRESH_TTL=20160           # refresh window in minutes (14 days)
+JWT_TTL=60                      # access token lifetime in minutes
+JWT_REFRESH_TTL=10080           # refresh token lifetime in minutes (7 days)
 
 # CORS
 CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+
+# Redis (cache, sessions, queue, token blacklist)
+REDIS_CLIENT=predis
+REDIS_HOST=redis
+REDIS_PORT=6379
 
 # Service Proxy
 # Any SERVICE_*_URL is auto-registered as a service
@@ -885,15 +899,18 @@ data:
   DB_DATABASE: "api_gateway"
   DB_USERNAME: "api_gateway_user"
   JWT_TTL: "60"
-  JWT_REFRESH_TTL: "20160"
+  JWT_REFRESH_TTL: "10080"
   CORS_ALLOWED_ORIGINS: "https://app.example.com,https://admin.example.com"
   GATEWAY_TIMEOUT: "10"
   SERVICE_ORDERS_URL: "http://order-service.services.svc.cluster.local:3000"
   SERVICE_PRODUCTS_URL: "http://product-service.services.svc.cluster.local:3001"
   LOG_CHANNEL: "stdout"
-  CACHE_STORE: "database"
-  SESSION_DRIVER: "database"
-  QUEUE_CONNECTION: "database"
+  CACHE_STORE: "redis"
+  SESSION_DRIVER: "redis"
+  QUEUE_CONNECTION: "redis"
+  REDIS_CLIENT: "predis"
+  REDIS_HOST: "redis.api-gateway.svc.cluster.local"
+  REDIS_PORT: "6379"
 ```
 
 ---
@@ -1040,14 +1057,16 @@ spec:
 
 ---
 
-#### CronJob — daily token blacklist purge
-Replaces the server cron. Runs `php artisan tokens:purge` daily at 2am.
+#### CronJob — daily OTP purge
+Runs `php artisan otps:purge` daily at 2am to clean up expired phone OTPs from the database.
+
+Note: Token blacklist purge is no longer needed — Redis TTL handles expiration automatically.
 
 ```yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: purge-expired-tokens
+  name: purge-expired-otps
   namespace: api-gateway
 spec:
   schedule: "0 2 * * *"  # daily at 2am UTC
@@ -1059,7 +1078,7 @@ spec:
           containers:
             - name: purge
               image: your-registry/api-gateway:latest
-              command: ["php", "artisan", "tokens:purge"]
+              command: ["php", "artisan", "otps:purge"]
               envFrom:
                 - configMapRef:
                     name: api-gateway-config
@@ -1159,7 +1178,7 @@ kubectl logs -f deployment/api-gateway -n api-gateway
 - [ ] `JWT_SECRET` set to a strong random string (min 32 chars)
 - [ ] `CORS_ALLOWED_ORIGINS` restricted to your frontend domains
 - [ ] Database credentials set
-- [ ] Laravel scheduler cron configured (`tokens:purge` and `otps:purge` run daily)
+- [ ] Redis deployed and reachable (`REDIS_HOST` configured)
 - [ ] `SMS_DRIVER` set to real provider if using V2 (`twilio`, `vonage`, or `aws_sns`)
 - [ ] `php artisan config:cache` run after deployment
 - [ ] `php artisan route:cache` run after deployment
@@ -1192,4 +1211,4 @@ php artisan schedule:list
 
 ---
 
-*Built with Laravel 12 — Custom JWT, no external auth packages.*
+*Built with Laravel 12 — Custom JWT with access/refresh tokens, Redis-backed cache/sessions/queue, no external auth packages.*
