@@ -361,22 +361,22 @@ Route::middleware(['jwt', 'admin'])->group(function () {
 
 ---
 
-### 11. Token Refresh
+### 11. Token Refresh (Access/Refresh Token Model)
 **Status:** ✅ Complete
 
 **What we built:**
-- Refresh endpoint to extend token lifetime
-- Decode token without expiration check
-- Verify signature validity
-- Refresh window (14 days default)
-- Generate new token with same user data
+- Separate access token (JWT, 1 hour) and refresh token (opaque, 7 days)
+- Refresh token stored in Redis with TTL — auto-expires
+- Refresh endpoint accepts refresh token in request body (not Bearer header)
+- On refresh, new access token issued — refresh token stays valid
 
 **Endpoint:** `POST /api/auth/refresh`
 
 **Request:**
-```http
-POST /api/auth/refresh
-Authorization: Bearer OLD_OR_EXPIRED_TOKEN
+```json
+{
+  "refresh_token": "a1b2c3d4e5f6...64chars..."
+}
 ```
 
 **Response (Success):**
@@ -385,46 +385,32 @@ Authorization: Bearer OLD_OR_EXPIRED_TOKEN
   "success": true,
   "message": "Token refreshed successfully",
   "data": {
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
     "token_type": "Bearer",
     "expires_in": 3600
   }
 }
 ```
 
-**Response (Token too old):**
+**Response (Invalid/Expired refresh token):**
 ```json
 {
   "success": false,
-  "message": "Token cannot be refreshed. Please login again."
-}
-```
-
-**Response (No token):**
-```json
-{
-  "success": false,
-  "message": "Token not provided"
+  "message": "Invalid or expired refresh token. Please login again."
 }
 ```
 
 **Files:**
-- `app/Services/JWTService.php` - Added refreshToken(), decodeToken(), verifySignature()
-- `app/Http/Controllers/AuthController.php` - Added refresh() method
-- `routes/api.php` - Added refresh route
-
-**Features:**
-- ✅ Refresh expired tokens (within 14 days)
-- ✅ Verify signature before refresh
-- ✅ Configurable refresh window
-- ✅ No JWT middleware required (token might be expired)
-- ✅ Timing-safe signature comparison
+- `app/Services/JWTService.php` - generateRefreshToken(), validateRefreshToken(), revokeRefreshToken()
+- `app/Http/Controllers/AuthController.php` - refresh() method
+- `routes/api.php` - refresh route (public, no JWT middleware)
 
 **Security:**
-- ✅ Signature must be valid
-- ✅ Limited refresh window (14 days)
-- ✅ New token generated (old one discarded)
-- ✅ Same user data preserved
+- ✅ Access token short-lived (1 hour) — limits damage if stolen
+- ✅ Refresh token opaque (64-char random string) — not decodable
+- ✅ Refresh token stored in Redis with TTL — auto-expires after 7 days
+- ✅ Refresh token only sent to one endpoint — minimal exposure
+- ✅ Refresh token revoked on logout
 
 ---
 
@@ -447,22 +433,26 @@ Authorization: Bearer OLD_OR_EXPIRED_TOKEN
 
 ---
 
-### 13. Logout with Token Blacklist
+### 13. Logout with Token Blacklist (Redis)
 **Status:** ✅ Complete
 
 **What we built:**
-- `token_blacklist` table to store revoked tokens
-- `TokenBlacklistService` with `blacklist()`, `isBlacklisted()`, `purgeExpired()` methods
+- `TokenBlacklistService` using Laravel Cache (Redis) with TTL
+- Token hash stored in Redis — auto-expires when the token itself would expire
 - `POST /api/auth/logout` endpoint (JWT protected)
 - Blacklist check in `JwtMiddleware` after signature validation
-- `tokens:purge` artisan command scheduled daily to clean expired tokens
+- Optional refresh token revocation on logout
+- No scheduled cleanup needed — Redis TTL handles expiration
 
 **Endpoint:** `POST /api/auth/logout`
 
 **Request:**
 ```http
 POST /api/auth/logout
-Authorization: Bearer YOUR_JWT_TOKEN
+Authorization: Bearer YOUR_ACCESS_TOKEN
+Content-Type: application/json
+
+{"refresh_token": "optional...revokes it immediately"}
 ```
 
 **Response:**
@@ -474,20 +464,16 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
 **Files:**
-- `database/migrations/*_create_token_blacklist_table.php`
-- `app/Models/TokenBlacklist.php`
-- `app/Services/TokenBlacklistService.php`
-- `app/Console/Commands/PurgeExpiredTokens.php`
-- `app/Http/Controllers/AuthController.php` - Added logout()
-- `app/Http/Middleware/JwtMiddleware.php` - Added blacklist check
-- `routes/api.php` - Added logout route
-- `routes/console.php` - Registered daily purge schedule
+- `app/Services/TokenBlacklistService.php` - Redis-backed blacklist with TTL
+- `app/Http/Controllers/AuthController.php` - logout() method
+- `app/Http/Middleware/JwtMiddleware.php` - blacklist check
 
 **Security:**
-- ✅ Blacklist check after signature validation (no wasted DB queries on invalid tokens)
-- ✅ Token stored with `expires_at` for automatic cleanup
+- ✅ Blacklist check after signature validation (no wasted Redis queries on invalid tokens)
+- ✅ Token stored with TTL matching its remaining lifetime — auto-expires
 - ✅ Revoked tokens return 401 even if not expired
-- ✅ Cleanup command prevents table bloat
+- ✅ No cleanup needed — Redis handles expiration automatically
+- ✅ Refresh token revoked on logout (if provided)
 
 ---
 

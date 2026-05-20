@@ -132,7 +132,8 @@ Content-Type: application/json
   "success": true,
   "message": "Registration successful",
   "data": {
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -163,7 +164,8 @@ Content-Type: application/json
   "success": true,
   "message": "Login successful",
   "data": {
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -282,7 +284,8 @@ Content-Type: application/json
   "success": true,
   "message": "Registration successful",
   "data": {
-    "token": "eyJ0eXAiOiJKV1Qi...",
+    "access_token": "eyJ0eXAiOiJKV1Qi...",
+    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -322,7 +325,10 @@ Content-Type: application/json
 #### Logout
 ```http
 POST /api/auth/logout
-Authorization: Bearer YOUR_JWT_TOKEN
+Authorization: Bearer YOUR_ACCESS_TOKEN
+Content-Type: application/json
+
+{"refresh_token": "optional...revokes it immediately"}
 ```
 
 **Response (Success):**
@@ -336,7 +342,11 @@ Authorization: Bearer YOUR_JWT_TOKEN
 #### Refresh Token
 ```http
 POST /api/auth/refresh
-Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "refresh_token": "a1b2c3d4e5f6...64chars..."
+}
 ```
 
 **Response (Success):**
@@ -345,30 +355,22 @@ Authorization: Bearer YOUR_JWT_TOKEN
   "success": true,
   "message": "Token refreshed successfully",
   "data": {
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
     "token_type": "Bearer",
     "expires_in": 3600
   }
 }
 ```
 
-**Response (Invalid/Expired Token):**
+**Response (Invalid/Expired):**
 ```json
 {
   "success": false,
-  "message": "Token cannot be refreshed. Please login again."
+  "message": "Invalid or expired refresh token. Please login again."
 }
 ```
 
-**Response (No Token):**
-```json
-{
-  "success": false,
-  "message": "Token not provided"
-}
-```
-
-**Note:** Tokens can be refreshed within 14 days of expiration. After that, users must login again.
+**Note:** Access tokens expire after 1 hour. Refresh tokens expire after 7 days. After that, users must login again.
 
 ## JWT Token Structure
 
@@ -543,8 +545,8 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 ```php
 'secret' => env('JWT_SECRET'),      // Secret key for signing
-'ttl' => env('JWT_TTL', 60),        // Token lifetime (minutes)
-'refresh_ttl' => env('JWT_REFRESH_TTL', 20160), // Refresh token lifetime
+'ttl' => env('JWT_TTL', 60),        // Access token lifetime (minutes)
+'refresh_ttl' => env('JWT_REFRESH_TTL', 10080), // Refresh token lifetime (7 days)
 'algo' => 'HS256',                  // Signing algorithm
 ```
 
@@ -552,13 +554,16 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 - JWT tokens are signed with HMAC-SHA256
 - Passwords are hashed with bcrypt
-- Tokens expire after 60 minutes (configurable)
-- User ID not exposed in JWT payload
+- Access tokens expire after 60 minutes (configurable)
+- Refresh tokens expire after 7 days, stored in Redis
+- Token blacklist stored in Redis with TTL — auto-expires, no cleanup needed
+- User UUID in JWT but not exposed in API responses
 - Role-based access control with admin middleware
 - All new users default to 'user' role (prevents privilege escalation)
 - Password confirmation required for registration
 - Sensitive data (emails) in request body, not URL (prevents logging exposure)
 - Admin-only endpoints protected with dual middleware (JWT + Admin)
+- Redis-backed cache, sessions, queue, and rate limiting
 - OTP expires after 10 minutes (V2)
 - OTP is single-use (V2)
 - Max 3 OTP requests per hour per phone (V2)
