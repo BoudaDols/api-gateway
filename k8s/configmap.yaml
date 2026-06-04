@@ -19,6 +19,7 @@ data:
   GATEWAY_TIMEOUT: "10"
   SERVICE_ABONNEMENT_URL: "http://abonnement.default.svc.cluster.local/api"
   SERVICE_USER_URL: "http://user-service.default.svc.cluster.local/api"
+  SERVICE_PDF_URL: "http://pdf-service.default.svc.cluster.local"
   SMS_DRIVER: "log"
   LOG_CHANNEL: "stdout"
   CACHE_STORE: "redis"

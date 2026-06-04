@@ -55,6 +55,7 @@ class JwtMiddleware
             'user_phone' => $payload['phone'] ?? null,
             'user_name'  => $payload['name'],
             'user_role'  => $payload['role'],
+            'user_plan'  => $payload['plan'] ?? null,
         ]);
 
         return $next($request);

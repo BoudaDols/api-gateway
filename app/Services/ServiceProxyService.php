@@ -24,6 +24,7 @@ class ServiceProxyService
             'X-User-Email' => $request->input('user_email'),
             'X-User-Name'  => $request->input('user_name'),
             'X-User-Role'  => $request->input('user_role'),
+            'X-User-Plan'  => $request->input('user_plan'),
             'Accept'       => 'application/json',
         ];
 

@@ -571,9 +571,11 @@ No code changes needed to add a new microservice.
 
 | Header | Value | Source |
 |---|---|---|
+| `X-User-ID` | 3f96454f-f1b5-... | JWT payload |
 | `X-User-Email` | john@example.com | JWT payload |
 | `X-User-Name` | John Doe | JWT payload |
 | `X-User-Role` | user | JWT payload |
+| `X-User-Plan` | basic | JWT payload (if present) |
 | `Accept` | application/json | Gateway |
 
 The JWT token itself is **never forwarded** to microservices.
