@@ -11,6 +11,7 @@ use App\Services\KafkaProducer;
 use App\Services\OtpService;
 use App\Services\SmsService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Cookie;
 
 class AuthController extends Controller
 {
@@ -96,7 +97,6 @@ class AuthController extends Controller
             'message' => 'Registration successful',
             'data' => [
                 'access_token'  => $token,
-                'refresh_token' => $refreshToken,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
@@ -105,7 +105,7 @@ class AuthController extends Controller
                     'role' => $user->role,
                 ],
             ],
-        ], 201);
+        ], 201)->withCookie($this->makeRefreshCookie($refreshToken));
     }
 
     /**
@@ -183,7 +183,6 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'data' => [
                 'access_token'  => $token,
-                'refresh_token' => $refreshToken,
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
@@ -192,6 +191,24 @@ class AuthController extends Controller
                     'role' => $user->role,
                 ],
             ],
-        ]);
+        ])->withCookie($this->makeRefreshCookie($refreshToken));
+    }
+
+    /**
+     * Create the httpOnly refresh token cookie.
+     */
+    private function makeRefreshCookie(string $refreshToken): Cookie
+    {
+        $config = config('jwt.refresh_cookie');
+
+        return new Cookie(
+            name: $config['name'],
+            value: $refreshToken,
+            expire: now()->addMinutes((int) config('jwt.refresh_ttl')),
+            path: $config['path'],
+            secure: $config['secure'],
+            httpOnly: $config['httponly'],
+            sameSite: $config['samesite'],
+        );
     }
 }

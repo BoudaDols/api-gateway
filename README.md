@@ -646,7 +646,7 @@ The collection includes:
 - [x] Service proxy
 - [x] V2 Phone/OTP authentication
 - [x] httpOnly cookie for refresh token (V1)
-- [ ] httpOnly cookie for refresh token (V2 phone/OTP)
+- [x] httpOnly cookie for refresh token (V2 phone/OTP)
 
 ## Contributing
 
