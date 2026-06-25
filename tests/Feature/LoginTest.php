@@ -27,9 +27,10 @@ class LoginTest extends TestCase
             ->assertJsonStructure([
                 'success',
                 'message',
-                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'token_type', 'expires_in', 'user'],
             ])
-            ->assertJson(['success' => true]);
+            ->assertJson(['success' => true])
+            ->assertCookie('refresh_token');
     }
 
     public function test_login_returns_user_data(): void

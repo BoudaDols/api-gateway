@@ -11,6 +11,7 @@ use App\Services\TokenBlacklistService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Symfony\Component\HttpFoundation\Cookie;
 
 class AuthController extends Controller
 {
@@ -56,7 +57,6 @@ class AuthController extends Controller
             'message' => 'Registration successful',
             'data' => [
                 'access_token'  => $accessToken,
-                'refresh_token' => $refreshToken,
                 'token_type'    => 'Bearer',
                 'expires_in'    => config('jwt.ttl') * 60,
                 'user' => [
@@ -65,7 +65,7 @@ class AuthController extends Controller
                     'role'  => $user->role,
                 ],
             ],
-        ], 201);
+        ], 201)->withCookie($this->makeRefreshCookie($refreshToken));
     }
 
     /**
@@ -115,7 +115,6 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'data' => [
                 'access_token'  => $accessToken,
-                'refresh_token' => $refreshToken,
                 'token_type'    => 'Bearer',
                 'expires_in'    => config('jwt.ttl') * 60,
                 'user' => [
@@ -124,11 +123,11 @@ class AuthController extends Controller
                     'role'  => $user->role,
                 ],
             ],
-        ]);
+        ])->withCookie($this->makeRefreshCookie($refreshToken));
     }
 
     /**
-     * Logout — blacklist the access token and revoke the refresh token.
+     * Logout — blacklist the access token, revoke the refresh token, and clear the cookie.
      */
     public function logout(Request $request): JsonResponse
     {
@@ -138,8 +137,8 @@ class AuthController extends Controller
         // Blacklist the access token so it can't be reused
         $this->blacklistService->blacklist($accessToken, $payload['exp']);
 
-        // Revoke the refresh token if provided in the request body
-        $refreshToken = $request->input('refresh_token');
+        // Revoke the refresh token from the cookie
+        $refreshToken = $request->cookie(config('jwt.refresh_cookie.name'));
         if ($refreshToken) {
             $this->jwtService->revokeRefreshToken($refreshToken);
         }
@@ -147,16 +146,15 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logged out successfully',
-        ]);
+        ])->withCookie($this->forgetRefreshCookie());
     }
 
     /**
-     * Refresh — exchange a valid refresh token for a new access token.
-     * The refresh token itself stays valid until it expires or the user logs out.
+     * Refresh — exchange a valid refresh token (from httpOnly cookie) for a new access token.
      */
     public function refresh(Request $request): JsonResponse
     {
-        $refreshToken = $request->input('refresh_token');
+        $refreshToken = $request->cookie(config('jwt.refresh_cookie.name'));
 
         if (! $refreshToken) {
             return response()->json([
@@ -172,7 +170,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired refresh token. Please login again.',
-            ], 401);
+            ], 401)->withCookie($this->forgetRefreshCookie());
         }
 
         // Generate a new access token with the stored user data
@@ -187,5 +185,42 @@ class AuthController extends Controller
                 'expires_in'   => config('jwt.ttl') * 60,
             ],
         ]);
+    }
+
+    /**
+     * Create the httpOnly refresh token cookie.
+     * The browser stores this and sends it automatically to /api/auth/* endpoints.
+     */
+    private function makeRefreshCookie(string $refreshToken): Cookie
+    {
+        $config = config('jwt.refresh_cookie');
+
+        return new Cookie(
+            name: $config['name'],
+            value: $refreshToken,
+            expire: now()->addMinutes(config('jwt.refresh_ttl')),
+            path: $config['path'],
+            secure: $config['secure'],
+            httpOnly: $config['httponly'],
+            sameSite: $config['samesite'],
+        );
+    }
+
+    /**
+     * Create an expired cookie to clear the refresh token from the browser.
+     */
+    private function forgetRefreshCookie(): Cookie
+    {
+        $config = config('jwt.refresh_cookie');
+
+        return new Cookie(
+            name: $config['name'],
+            value: '',
+            expire: now()->subMinute(),
+            path: $config['path'],
+            secure: $config['secure'],
+            httpOnly: $config['httponly'],
+            sameSite: $config['samesite'],
+        );
     }
 }

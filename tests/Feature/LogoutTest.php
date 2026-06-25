@@ -31,7 +31,8 @@ class LogoutTest extends TestCase
         ]);
 
         $response->assertStatus(200)
-            ->assertJson(['success' => true, 'message' => 'Logged out successfully']);
+            ->assertJson(['success' => true, 'message' => 'Logged out successfully'])
+            ->assertCookie('refresh_token', '');
     }
 
     public function test_token_is_rejected_after_logout(): void

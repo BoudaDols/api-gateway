@@ -34,9 +34,8 @@ class TokenRefreshTest extends TestCase
     {
         $refreshToken = $this->makeRefreshToken();
 
-        $response = $this->postJson('/api/auth/refresh', [
-            'refresh_token' => $refreshToken,
-        ]);
+        $response = $this->withCookie('refresh_token', $refreshToken)
+            ->postJson('/api/auth/refresh');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['access_token', 'token_type', 'expires_in']])
@@ -47,9 +46,8 @@ class TokenRefreshTest extends TestCase
     {
         $refreshToken = $this->makeRefreshToken();
 
-        $response = $this->postJson('/api/auth/refresh', [
-            'refresh_token' => $refreshToken,
-        ]);
+        $response = $this->withCookie('refresh_token', $refreshToken)
+            ->postJson('/api/auth/refresh');
 
         $accessToken = $response->json('data.access_token');
 
@@ -59,7 +57,7 @@ class TokenRefreshTest extends TestCase
 
     public function test_refresh_fails_without_refresh_token(): void
     {
-        $response = $this->postJson('/api/auth/refresh', []);
+        $response = $this->postJson('/api/auth/refresh');
 
         $response->assertStatus(401)
             ->assertJson(['success' => false, 'message' => 'Refresh token not provided']);
@@ -67,9 +65,8 @@ class TokenRefreshTest extends TestCase
 
     public function test_refresh_fails_with_invalid_refresh_token(): void
     {
-        $response = $this->postJson('/api/auth/refresh', [
-            'refresh_token' => 'invalid-random-string',
-        ]);
+        $response = $this->withCookie('refresh_token', 'invalid-random-string')
+            ->postJson('/api/auth/refresh');
 
         $response->assertStatus(401)
             ->assertJson(['success' => false]);
@@ -82,11 +79,19 @@ class TokenRefreshTest extends TestCase
         // Revoke it
         $this->jwt->revokeRefreshToken($refreshToken);
 
-        $response = $this->postJson('/api/auth/refresh', [
-            'refresh_token' => $refreshToken,
-        ]);
+        $response = $this->withCookie('refresh_token', $refreshToken)
+            ->postJson('/api/auth/refresh');
 
         $response->assertStatus(401)
             ->assertJson(['success' => false]);
+    }
+
+    public function test_refresh_clears_cookie_on_invalid_token(): void
+    {
+        $response = $this->withCookie('refresh_token', 'expired-token')
+            ->postJson('/api/auth/refresh');
+
+        $response->assertStatus(401)
+            ->assertCookie('refresh_token', '');
     }
 }

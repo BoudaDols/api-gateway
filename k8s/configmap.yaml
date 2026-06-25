@@ -15,7 +15,11 @@ data:
   DB_USERNAME: "root"
   JWT_TTL: "60"
   JWT_REFRESH_TTL: "20160"
-  CORS_ALLOWED_ORIGINS: "*"
+  # TODO: Update CORS_ALLOWED_ORIGINS to the actual frontend CDN domain in production
+  # (e.g., https://d1234.cloudfront.net or https://your-domain.com)
+  # and set JWT_COOKIE_SECURE to "true" once HTTPS is configured.
+  CORS_ALLOWED_ORIGINS: "http://localhost:5173"
+  JWT_COOKIE_SECURE: "false"
   GATEWAY_TIMEOUT: "10"
   SERVICE_ABONNEMENT_URL: "http://abonnement.default.svc.cluster.local/api"
   SERVICE_USER_URL: "http://user-service.default.svc.cluster.local/api"

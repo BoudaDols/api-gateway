@@ -25,9 +25,10 @@ class RegisterTest extends TestCase
             ->assertJsonStructure([
                 'success',
                 'message',
-                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'token_type', 'expires_in', 'user'],
             ])
-            ->assertJson(['success' => true]);
+            ->assertJson(['success' => true])
+            ->assertCookie('refresh_token');
     }
 
     public function test_register_creates_user_in_database(): void
@@ -55,8 +56,8 @@ class RegisterTest extends TestCase
         $response = $this->postJson('/api/auth/register', $this->validPayload);
 
         $this->assertNotEmpty($response->json('data.access_token'));
-        $this->assertNotEmpty($response->json('data.refresh_token'));
         $this->assertEquals('Bearer', $response->json('data.token_type'));
+        $response->assertCookie('refresh_token');
     }
 
     public function test_register_fails_with_duplicate_email(): void
