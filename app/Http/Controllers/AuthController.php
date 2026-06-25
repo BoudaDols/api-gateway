@@ -198,7 +198,7 @@ class AuthController extends Controller
         return new Cookie(
             name: $config['name'],
             value: $refreshToken,
-            expire: now()->addMinutes(config('jwt.refresh_ttl')),
+            expire: now()->addMinutes((int) config('jwt.refresh_ttl')),
             path: $config['path'],
             secure: $config['secure'],
             httpOnly: $config['httponly'],
