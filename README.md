@@ -39,6 +39,7 @@ Client → API Gateway (JWT Auth) → Microservices
 - ✅ Request logging
 - ✅ Service proxy
 - ✅ V2 Phone/OTP authentication
+- ✅ httpOnly cookie refresh token (secure, SameSite=Strict)
 
 ## Requirements
 
@@ -133,7 +134,6 @@ Content-Type: application/json
   "message": "Registration successful",
   "data": {
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -145,7 +145,12 @@ Content-Type: application/json
 }
 ```
 
-**Note:** All new users are assigned the 'user' role by default. Only admins can change user roles.
+**Response headers:**
+```
+Set-Cookie: refresh_token=<opaque-64-chars>; path=/api/auth; httponly; samesite=strict; expires=<+14days>
+```
+
+**Note:** The refresh token is NOT in the JSON body — it's set as an httpOnly cookie. JavaScript cannot read it. The browser stores and sends it automatically to `/api/auth/*` endpoints.
 
 #### Login
 ```http
@@ -165,7 +170,6 @@ Content-Type: application/json
   "message": "Login successful",
   "data": {
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -175,6 +179,11 @@ Content-Type: application/json
     }
   }
 }
+```
+
+**Response headers:**
+```
+Set-Cookie: refresh_token=<opaque-64-chars>; path=/api/auth; httponly; samesite=strict; expires=<+14days>
 ```
 
 ### Protected Routes
@@ -285,7 +294,6 @@ Content-Type: application/json
   "message": "Registration successful",
   "data": {
     "access_token": "eyJ0eXAiOiJKV1Qi...",
-    "refresh_token": "a1b2c3d4e5f6...64chars...",
     "token_type": "Bearer",
     "expires_in": 3600,
     "user": {
@@ -295,6 +303,11 @@ Content-Type: application/json
     }
   }
 }
+```
+
+**Response headers:**
+```
+Set-Cookie: refresh_token=<opaque-64-chars>; path=/api/auth; httponly; samesite=strict; expires=<+14days>
 ```
 
 #### Step 1 — Send OTP (Login)
@@ -326,12 +339,11 @@ Content-Type: application/json
 ```http
 POST /api/auth/logout
 Authorization: Bearer YOUR_ACCESS_TOKEN
-Content-Type: application/json
-
-{"refresh_token": "optional...revokes it immediately"}
 ```
 
-**Response (Success):**
+The browser automatically sends the `refresh_token` cookie. The server revokes the refresh token in Redis and clears the cookie.
+
+**Response:**
 ```json
 {
   "success": true,
@@ -339,15 +351,17 @@ Content-Type: application/json
 }
 ```
 
+**Response headers:**
+```
+Set-Cookie: refresh_token=; path=/api/auth; httponly; samesite=strict; Max-Age=0
+```
+
 #### Refresh Token
 ```http
 POST /api/auth/refresh
-Content-Type: application/json
-
-{
-  "refresh_token": "a1b2c3d4e5f6...64chars..."
-}
 ```
+
+No request body needed — the browser sends the `refresh_token` httpOnly cookie automatically.
 
 **Response (Success):**
 ```json
@@ -370,7 +384,7 @@ Content-Type: application/json
 }
 ```
 
-**Note:** Access tokens expire after 1 hour. Refresh tokens expire after 7 days. After that, users must login again.
+**Note:** Access tokens expire after 1 hour. Refresh tokens expire after 14 days. After that, users must login again.
 
 ## JWT Token Structure
 
@@ -526,19 +540,23 @@ api-gateway/
 ### Settings (`config/cors.php`)
 
 ```php
-'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
+'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')),
 'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With'],
+'exposed_headers' => ['Set-Cookie'],
+'supports_credentials' => true,
 ```
 
-Set `CORS_ALLOWED_ORIGINS` in `.env` to restrict origins in production:
+`supports_credentials` is required for the browser to include httpOnly cookies in cross-origin requests. When credentials are enabled, `allowed_origins` cannot be `*`.
+
+Set `CORS_ALLOWED_ORIGINS` in `.env` or Kubernetes configmap:
 
 ```env
-# Allow all (development)
-CORS_ALLOWED_ORIGINS=*
+# Local development (Vite dev server)
+CORS_ALLOWED_ORIGINS=http://localhost:5173
 
-# Restrict to specific origins (production)
-CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+# Production (CloudFront/CDN domain)
+CORS_ALLOWED_ORIGINS=https://app.example.com
 ```
 
 ### JWT Settings (`config/jwt.php`)
@@ -546,16 +564,24 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 ```php
 'secret' => env('JWT_SECRET'),      // Secret key for signing
 'ttl' => env('JWT_TTL', 60),        // Access token lifetime (minutes)
-'refresh_ttl' => env('JWT_REFRESH_TTL', 10080), // Refresh token lifetime (7 days)
+'refresh_ttl' => env('JWT_REFRESH_TTL', 10080), // Refresh token lifetime (14 days)
 'algo' => 'HS256',                  // Signing algorithm
+'refresh_cookie' => [
+    'name'     => 'refresh_token',  // Cookie name
+    'path'     => '/api/auth',      // Only sent to auth endpoints
+    'secure'   => env('JWT_COOKIE_SECURE', true),  // HTTPS only (false for local)
+    'httponly'  => true,             // Not accessible via JavaScript
+    'samesite' => 'Strict',         // No cross-site requests
+],
 ```
 
 ## Security
 
 - JWT tokens are signed with HMAC-SHA256
 - Passwords are hashed with bcrypt
-- Access tokens expire after 60 minutes (configurable)
-- Refresh tokens expire after 7 days, stored in Redis
+- Access tokens expire after 60 minutes (configurable), stored in memory only (never in localStorage)
+- Refresh tokens expire after 14 days, stored as httpOnly cookie (HttpOnly, Secure, SameSite=Strict, Path=/api/auth)
+- Refresh tokens are opaque strings backed by Redis — not JWTs, not decodable
 - Token blacklist stored in Redis with TTL — auto-expires, no cleanup needed
 - User UUID in JWT but not exposed in API responses
 - Role-based access control with admin middleware
@@ -564,6 +590,7 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 - Sensitive data (emails) in request body, not URL (prevents logging exposure)
 - Admin-only endpoints protected with dual middleware (JWT + Admin)
 - Redis-backed cache, sessions, queue, and rate limiting
+- CORS with `credentials: true` — origin explicitly allowlisted, never `*`
 - OTP expires after 10 minutes (V2)
 - OTP is single-use (V2)
 - Max 3 OTP requests per hour per phone (V2)
@@ -618,6 +645,8 @@ The collection includes:
 - [x] Request logging
 - [x] Service proxy
 - [x] V2 Phone/OTP authentication
+- [x] httpOnly cookie for refresh token (V1)
+- [ ] httpOnly cookie for refresh token (V2 phone/OTP)
 
 ## Contributing
 
