@@ -14,12 +14,21 @@ This API Gateway serves as a single entry point for microservices, handling:
 ## Architecture
 
 ```
-Client → API Gateway (JWT Auth) → Microservices
-         ↓
-    Validates JWT
-    Adds user context
-    Forwards request
+Frontend (Vue 3 SPA)
+     │
+     │ httpOnly cookie (refresh) + Bearer token (access)
+     ▼
+API Gateway (JWT Auth) → Microservices
+     ↓
+  Validates JWT
+  Adds user context (X-User-ID, X-User-Email, X-User-Name, X-User-Role, X-User-Plan)
+  Forwards request
 ```
+
+### Consumers
+- **frontend** (Vue 3 SPA) — primary consumer; uses httpOnly cookie for refresh tokens, Bearer for access tokens
+- **curl / Postman** — for testing and debugging
+- All requests from external clients go through this gateway
 
 ## Features
 
